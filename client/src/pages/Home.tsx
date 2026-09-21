@@ -67,8 +67,14 @@ export default function Home() {
             <SectionHeader eyebrow="Personalized" title="Your board" action={<Link href="/portfolio" className="icon-button" aria-label="Open portfolio"><SlidersHorizontal size={15} /></Link>} />
             <div className="board-value-row"><div><span className="metric-label">Portfolio value</span><strong className="board-value">{portfolio ? `$${portfolio.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "Sign in to connect"}</strong><div>{portfolio && <><Change value={portfolio.profitPercentage} /> <span className="muted">return</span></>}</div>{portfolio && <small className="muted">₿ {(portfolio.btcBalance ?? 0).toFixed(8)} available</small>}</div><div className="board-orbit"><WalletCards size={20} /></div></div>
             <div className="board-chart"><MiniSparkline values={[92, 94, 91, 96, 95, 100, 104, 103, 109, 111, 116, 114, 121, 126]} width={240} height={48} /></div>
+            <div className="section-card" style={{ padding: "16px", border: "1px solid rgba(94,234,212,.2)", background: "linear-gradient(135deg, rgba(94,234,212,.08), rgba(15,23,42,.15))" }}>
+              <span className="section-eyebrow">Put Your Crypto to Work</span>
+              <h3 style={{ margin: "8px 0 6px", fontSize: "18px" }}>Earn returns on eligible crypto balances.</h3>
+              <p style={{ margin: 0, color: "var(--muted)", fontSize: "12px" }}>Start with as little as $100 and track your daily accrual from one dashboard.</p>
+              <div style={{ marginTop: 12 }}><Link href="/investments" className="button button-primary button-sm">Explore investments</Link></div>
+            </div>
             <div className="allocation-row"><div className="allocation-donut"><span>8</span><small>assets</small></div><div className="allocation-bars"><div><span><i className="allocation-dot teal" />Equities</span><b>62%</b></div><div><span><i className="allocation-dot violet" />Digital assets</span><b>23%</b></div><div><span><i className="allocation-dot amber" />Cash &amp; bonds</span><b>15%</b></div></div></div>
-            <div className="card-links"><Link href="/portfolio" className="card-link">Open portfolio <ArrowRight size={14} /></Link><Link href="/deposit/eth" className="card-link">Deposit ETH <ArrowRight size={14} /></Link></div>
+            <div className="card-links"><Link href="/portfolio" className="card-link">Open portfolio <ArrowRight size={14} /></Link><Link href="/investments" className="card-link">Explore investments <ArrowRight size={14} /></Link></div>
           </div>
         </section>
 

@@ -12,16 +12,27 @@ import { TRPCError } from "@trpc/server";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
+import { adminProcedure, protectedProcedure } from "./_core/trpc";
 import { fetchLiveNews } from "./liveNews";
 import { getDb } from "./db";
-import { protectedProcedure } from "./_core/trpc";
 import { getMarketPrice, getPortfolio } from "./portfolio";
 import { getLiveInstrument, getLiveInstruments } from "./market-provider";
-import { btcDeposits, walletBalances } from "../drizzle/schema";
+import { btcDeposits, investmentAccruals, investmentPlans, investments, walletBalances, wallets } from "../drizzle/schema";
 import { getBitcoinNetwork, getRequiredConfirmations, bitcoinWalletProvider, syncBtcDeposits } from "./btc-provider";
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { supabaseAdmin } from "./_core/supabase";
 import { validateWalletConnectionPayload } from "./_core/wallet";
+import {
+  addDecimal,
+  decimalNumber,
+  ensureInvestmentPlans,
+  getInvestmentSummaryForUser,
+  getPlanDailyInterest,
+  getWalletStateForUser,
+  processDailyAccruals,
+  subtractDecimal,
+  validateInvestmentPlan,
+} from "./investments";
 
 export const appRouter = router({
   system: systemRouter,
@@ -87,6 +98,226 @@ export const appRouter = router({
       return { ...(await getPortfolio(db, ctx.user.openId)), mode: "LIVE" as const };
     }),
     quote: protectedProcedure.input(z.object({ symbol: z.string() })).query(async ({ input }) => ({ symbol: input.symbol.toUpperCase(), price: await getMarketPrice(input.symbol) })),
+  }),
+  investments: router({
+    plans: publicProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      const plans = await ensureInvestmentPlans(db);
+      return plans.map((plan: any) => ({
+        ...plan,
+        minimumInvestment: Number(plan.minimumInvestment),
+        dailyRate: Number(plan.dailyRate),
+        estimatedDailyEarnings: Number(plan.minimumInvestment) * Number(plan.dailyRate),
+      }));
+    }),
+    summary: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) {
+        return { availableBalance: "0", investedBalance: "0", totalEarned: "0", currentValue: "0", activeInvestments: 0, investments: [] };
+      }
+
+      const summary = await getInvestmentSummaryForUser(db, ctx.user.openId);
+      return summary;
+    }),
+    list: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) return [];
+      await ensureInvestmentPlans(db);
+
+      const rows = await db.select().from(investments).where(eq(investments.userId, ctx.user.openId)).orderBy(desc(investments.createdAt));
+      const plans = await db.select().from(investmentPlans);
+      const planMap = new Map(plans.map((plan) => [plan.id, plan]));
+
+      return rows.map((investment) => ({
+        ...investment,
+        plan: planMap.get(investment.planId) ?? null,
+        principalAmount: Number(investment.principalAmount),
+        accruedInterest: Number(investment.accruedInterest),
+        totalValue: Number(investment.totalValue),
+        dailyInterestAmount: Number(investment.dailyInterestAmount),
+      }));
+    }),
+    detail: protectedProcedure.input(z.object({ investmentId: z.number() })).query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: "Database is not configured" });
+
+      const [investment] = await db.select().from(investments).where(and(eq(investments.id, input.investmentId), eq(investments.userId, ctx.user.openId))).limit(1);
+      if (!investment) throw new TRPCError({ code: "NOT_FOUND", message: "Investment not found." });
+
+      const [plan] = await db.select().from(investmentPlans).where(eq(investmentPlans.id, investment.planId)).limit(1);
+      const history = await db.select().from(investmentAccruals).where(and(eq(investmentAccruals.investmentId, investment.id), eq(investmentAccruals.userId, ctx.user.openId))).orderBy(desc(investmentAccruals.createdAt));
+
+      return {
+        ...investment,
+        plan: plan ?? null,
+        principalAmount: Number(investment.principalAmount),
+        accruedInterest: Number(investment.accruedInterest),
+        totalValue: Number(investment.totalValue),
+        dailyInterestAmount: Number(investment.dailyInterestAmount),
+        history: history.map((entry) => ({
+          ...entry,
+          amount: Number(entry.amount),
+          balanceAfter: Number(entry.balanceAfter),
+        })),
+      };
+    }),
+    history: protectedProcedure.input(z.object({ investmentId: z.number().optional(), limit: z.number().default(25) })).query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) return [];
+
+      const whereClauses = input.investmentId !== undefined
+        ? and(eq(investmentAccruals.investmentId, input.investmentId), eq(investmentAccruals.userId, ctx.user.openId))
+        : eq(investmentAccruals.userId, ctx.user.openId);
+
+      const rows = await db.select().from(investmentAccruals).where(whereClauses).orderBy(desc(investmentAccruals.createdAt)).limit(input.limit);
+      return rows.map((entry) => ({
+        ...entry,
+        amount: Number(entry.amount),
+        balanceAfter: Number(entry.balanceAfter),
+      }));
+    }),
+    create: protectedProcedure.input(z.object({
+      planId: z.number(),
+      amount: z.union([z.string(), z.number()]),
+      asset: z.string().min(3).max(16),
+    })).mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: "Database is not configured" });
+
+      const walletState = await getWalletStateForUser(db, ctx.user.openId);
+      const planList = await ensureInvestmentPlans(db);
+      const plan = planList.find((entry: any) => entry.id === input.planId);
+      if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Investment plan not found." });
+
+      const amountAsNumber = Number(input.amount);
+      validateInvestmentPlan(plan, amountAsNumber);
+      if (Number(walletState.availableBalance) < amountAsNumber) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Insufficient available balance to complete this investment." });
+      }
+
+      const startDate = new Date();
+      const maturityDate = new Date(startDate);
+      maturityDate.setDate(maturityDate.getDate() + Number(plan.durationDays));
+      const nextAccrualDate = new Date(startDate);
+      nextAccrualDate.setDate(nextAccrualDate.getDate() + 1);
+      const amountString = String(input.amount);
+      const dailyInterest = getPlanDailyInterest(amountString, plan.dailyRate);
+
+      await db.transaction(async (tx: any) => {
+        const wallet = (await tx.select().from(wallets).where(eq(wallets.userId, ctx.user.openId)).limit(1))[0];
+        if (!wallet) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Wallet not found for this account." });
+        }
+
+        const reducedBalance = subtractDecimal(wallet.cashBalance, amountString);
+        await tx.update(wallets).set({ cashBalance: reducedBalance, updatedAt: new Date() }).where(eq(wallets.userId, ctx.user.openId));
+
+        await tx.insert(investments).values({
+          userId: ctx.user.openId,
+          asset: input.asset.toUpperCase(),
+          principalAmount: amountString,
+          planId: plan.id,
+          interestRate: plan.dailyRate,
+          interestFrequency: "daily",
+          dailyInterestAmount: dailyInterest,
+          accruedInterest: "0",
+          totalValue: amountString,
+          startDate,
+          maturityDate,
+          lastAccrualDate: null,
+          nextAccrualDate,
+          status: "ACTIVE",
+        });
+
+        const [createdInvestment] = await tx.select().from(investments).where(eq(investments.userId, ctx.user.openId)).orderBy(desc(investments.createdAt)).limit(1);
+        if (!createdInvestment) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Investment creation failed." });
+        }
+
+        await tx.insert(investmentAccruals).values({
+          investmentId: createdInvestment.id,
+          userId: ctx.user.openId,
+          asset: input.asset.toUpperCase(),
+          transactionType: "INVESTMENT_CREATED",
+          amount: amountString,
+          balanceAfter: amountString,
+          accrualDate: startDate,
+          description: `Investment created for ${input.asset.toUpperCase()} using ${plan.name}`,
+        });
+      });
+
+      const summary = await getInvestmentSummaryForUser(db, ctx.user.openId);
+      return {
+        success: true,
+        message: "Investment created successfully.",
+        dailyInterest,
+        summary,
+      };
+    }),
+    processAccruals: adminProcedure.mutation(async () => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: "Database is not configured" });
+      return processDailyAccruals(db);
+    }),
+  }),
+  admin: router({
+    plans: adminProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(investmentPlans).orderBy(desc(investmentPlans.createdAt));
+    }),
+    createPlan: adminProcedure.input(z.object({
+      name: z.string().min(2),
+      asset: z.string().min(3).max(16),
+      minimumInvestment: z.union([z.string(), z.number()]),
+      durationDays: z.number().int().positive(),
+      dailyRate: z.union([z.string(), z.number()]),
+      isActive: z.boolean().optional(),
+      description: z.string().optional(),
+      riskNote: z.string().optional(),
+    })).mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: "Database is not configured" });
+
+      await db.insert(investmentPlans).values({
+        name: input.name,
+        asset: input.asset.toUpperCase(),
+        minimumInvestment: String(input.minimumInvestment),
+        durationDays: input.durationDays,
+        dailyRate: String(input.dailyRate),
+        isActive: input.isActive === false ? 0 : 1,
+        description: input.description ?? null,
+        riskNote: input.riskNote ?? null,
+      });
+
+      const rows = await db.select().from(investmentPlans).orderBy(desc(investmentPlans.createdAt)).limit(1);
+      return rows[0];
+    }),
+    updatePlan: adminProcedure.input(z.object({
+      id: z.number(),
+      name: z.string().optional(),
+      asset: z.string().optional(),
+      minimumInvestment: z.union([z.string(), z.number()]).optional(),
+      durationDays: z.number().int().positive().optional(),
+      dailyRate: z.union([z.string(), z.number()]).optional(),
+      isActive: z.boolean().optional(),
+    })).mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: "Database is not configured" });
+
+      const updates: Record<string, any> = {};
+      if (input.name) updates.name = input.name;
+      if (input.asset) updates.asset = input.asset.toUpperCase();
+      if (input.minimumInvestment !== undefined) updates.minimumInvestment = String(input.minimumInvestment);
+      if (input.durationDays !== undefined) updates.durationDays = input.durationDays;
+      if (input.dailyRate !== undefined) updates.dailyRate = String(input.dailyRate);
+      if (input.isActive !== undefined) updates.isActive = input.isActive ? 1 : 0;
+
+      await db.update(investmentPlans).set(updates).where(eq(investmentPlans.id, input.id));
+      const [updated] = await db.select().from(investmentPlans).where(eq(investmentPlans.id, input.id)).limit(1);
+      return updated;
+    }),
   }),
   wallet: router({
     status: protectedProcedure.query(async ({ ctx }) => {

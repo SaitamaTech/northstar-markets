@@ -18,6 +18,9 @@ import ScreenerPage from "@/pages/ScreenerPage";
 import SettingsPage from "@/pages/SettingsPage";
 import WatchlistPage from "@/pages/WatchlistPage";
 import WithdrawalPage from "@/pages/WithdrawalPage";
+import InvestmentsPage from "@/pages/InvestmentsPage";
+import MyInvestmentsPage from "@/pages/MyInvestmentsPage";
+import InvestmentDetailPage from "@/pages/InvestmentDetailPage";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 
@@ -37,6 +40,9 @@ function Router() {
     <Route path="/screener" component={ScreenerPage} />
     <Route path="/watchlist" component={WatchlistPage} />
     <Route path="/portfolio" component={PortfolioPage} />
+    <Route path="/investments" component={InvestmentsPage} />
+    <Route path="/investments/my-investments" component={MyInvestmentsPage} />
+    <Route path="/investments/:id" component={InvestmentDetailPage} />
     <Route path="/calendar" component={CalendarPage} />
     <Route path="/settings" component={SettingsPage} />
     <Route path="/privacy-policy" component={PrivacyPolicyPage} />

@@ -66,6 +66,53 @@ export const transactions = mysqlTable("transactions", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+export const investmentPlans = mysqlTable("investment_plans", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 64 }).notNull(),
+  asset: varchar("asset", { length: 16 }).notNull(),
+  minimumInvestment: decimal("minimumInvestment", { precision: 20, scale: 8 }).notNull(),
+  durationDays: int("durationDays").notNull(),
+  dailyRate: decimal("dailyRate", { precision: 12, scale: 8 }).notNull(),
+  isActive: int("isActive").default(1).notNull(),
+  description: text("description"),
+  riskNote: text("riskNote"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const investments = mysqlTable("investments", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: varchar("userId", { length: 64 }).notNull(),
+  asset: varchar("asset", { length: 16 }).notNull(),
+  principalAmount: decimal("principalAmount", { precision: 20, scale: 8 }).notNull(),
+  planId: int("planId").notNull(),
+  interestRate: decimal("interestRate", { precision: 12, scale: 8 }).notNull(),
+  interestFrequency: varchar("interestFrequency", { length: 16 }).default("daily").notNull(),
+  dailyInterestAmount: decimal("dailyInterestAmount", { precision: 20, scale: 8 }).default("0").notNull(),
+  accruedInterest: decimal("accruedInterest", { precision: 20, scale: 8 }).default("0").notNull(),
+  totalValue: decimal("totalValue", { precision: 20, scale: 8 }).default("0").notNull(),
+  startDate: timestamp("startDate").defaultNow().notNull(),
+  maturityDate: timestamp("maturityDate"),
+  lastAccrualDate: timestamp("lastAccrualDate"),
+  nextAccrualDate: timestamp("nextAccrualDate"),
+  status: mysqlEnum("status", ["ACTIVE", "MATURED", "COMPLETED", "CANCELLED"]).default("ACTIVE").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => ({ userStatusIndex: index("investments_user_status_idx").on(table.userId, table.status) }));
+
+export const investmentAccruals = mysqlTable("investment_accruals", {
+  id: int("id").autoincrement().primaryKey(),
+  investmentId: int("investmentId").notNull(),
+  userId: varchar("userId", { length: 64 }).notNull(),
+  asset: varchar("asset", { length: 16 }).notNull(),
+  transactionType: mysqlEnum("transactionType", ["INVESTMENT_CREATED", "DAILY_INTEREST", "INVESTMENT_MATURED", "INVESTMENT_COMPLETED", "INVESTMENT_CANCELLED", "INVESTMENT_WITHDRAWAL"]).notNull(),
+  amount: decimal("amount", { precision: 20, scale: 8 }).notNull(),
+  balanceAfter: decimal("balanceAfter", { precision: 20, scale: 8 }).notNull(),
+  accrualDate: timestamp("accrualDate").defaultNow().notNull(),
+  description: text("description").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => ({ investmentDateIndex: index("investment_accruals_investment_date_idx").on(table.investmentId, table.accrualDate) }));
+
 export const btcDepositAddresses = mysqlTable("btc_deposit_addresses", {
   id: int("id").autoincrement().primaryKey(),
   userId: varchar("userId", { length: 64 }).notNull(),
