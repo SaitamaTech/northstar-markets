@@ -7,26 +7,38 @@ import { notify } from "@/lib/notify";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 
+const investmentPeriods = ["Weekly", "Monthly", "Yearly"] as const;
+
 export default function InvestmentsPage() {
   const { user, isAuthenticated } = useAuth();
-  const plansQuery = trpc.investments.plans.useQuery(undefined, { staleTime: 60_000 });
-  const summaryQuery = trpc.investments.summary.useQuery(undefined, { enabled: isAuthenticated, staleTime: 30_000 });
+  const plansQuery = trpc.investments.plans.useQuery(undefined, { staleTime: 60_000, refetchInterval: 15000 });
+  const summaryQuery = trpc.investments.summary.useQuery(undefined, { enabled: isAuthenticated, staleTime: 30_000, refetchInterval: 15000 });
   const createMutation = trpc.investments.create.useMutation();
   const plans = plansQuery.data ?? [];
+  const [selectedPeriod, setSelectedPeriod] = useState<(typeof investmentPeriods)[number]>("Weekly");
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(plans[0]?.id ?? null);
   const [amount, setAmount] = useState("1000");
   const [asset, setAsset] = useState("USDT");
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  const filteredPlans = useMemo(() => {
+    return plans.filter((plan: any) => {
+      if (selectedPeriod === "Weekly") return Number(plan.durationDays) <= 14;
+      if (selectedPeriod === "Monthly") return Number(plan.durationDays) > 14 && Number(plan.durationDays) <= 90;
+      return Number(plan.durationDays) > 90;
+    });
+  }, [plans, selectedPeriod]);
+
   const selectedPlan = useMemo(() => {
-    return plans.find((plan: any) => plan.id === selectedPlanId) ?? plans[0] ?? null;
-  }, [plans, selectedPlanId]);
+    return filteredPlans.find((plan: any) => plan.id === selectedPlanId) ?? filteredPlans[0] ?? plans[0] ?? null;
+  }, [filteredPlans, plans, selectedPlanId]);
 
   const principal = Number(amount || 0);
   const dailyReturn = selectedPlan ? principal * Number(selectedPlan.dailyRate) : 0;
   const durationReturn = selectedPlan ? dailyReturn * Number(selectedPlan.durationDays) : 0;
   const estimatedEndValue = selectedPlan ? principal + durationReturn : 0;
   const availableBalance = Number(summaryQuery.data?.availableBalance ?? 0);
+  const annualizedYield = selectedPlan ? ((Math.pow(1 + Number(selectedPlan.dailyRate), 365) - 1) * 100) : 0;
 
   const handleCreateInvestment = async () => {
     if (!user) {
@@ -56,7 +68,7 @@ export default function InvestmentsPage() {
         asset: asset.toUpperCase(),
       });
       setConfirmOpen(false);
-      notify("Investment created successfully. Your balance has shifted into the invested plan.", "success");
+      notify("Investment created successfully. Your deposit has moved into the selected plan.", "success");
       await summaryQuery.refetch();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Investment could not be created.";
@@ -74,8 +86,8 @@ export default function InvestmentsPage() {
               <span>/</span>
               <strong>Invest</strong>
             </div>
-            <h1>Invest your crypto</h1>
-            <p>Choose a plan that fits your goals and move eligible balance into an active earning position.</p>
+            <h1>Crypto investment plans</h1>
+            <p>Move your available balance into a structured crypto earning plan and track the daily yield in real time.</p>
           </div>
           <div className="heading-actions">
             <Link href="/investments/my-investments" className="button button-secondary button-sm">My investments</Link>
@@ -100,35 +112,83 @@ export default function InvestmentsPage() {
           </section>
         </div>
 
+        <div className="section-card" style={{ padding: "22px", marginBottom: "18px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <span className="section-eyebrow">Yield products</span>
+              <h2 style={{ margin: "8px 0 0" }}>Choose a term that matches your goals</h2>
+            </div>
+            <div className="wallet-meta-row">
+              {investmentPeriods.map((period) => (
+                <button
+                  key={period}
+                  type="button"
+                  className={period === selectedPeriod ? "wallet-meta-pill" : "wallet-meta-pill"}
+                  style={{ border: period === selectedPeriod ? "1px solid rgba(94,234,212,.5)" : "1px solid rgba(148,163,184,.2)", background: period === selectedPeriod ? "rgba(94,234,212,.08)" : "rgba(15,23,42,.5)", color: "var(--foreground)" }}
+                  onClick={() => setSelectedPeriod(period)}
+                >
+                  {period}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
         <div className="btc-deposit-grid">
           <section className="section-card btc-address-card">
             <div className="section-header">
               <div>
-                <span className="section-eyebrow">Investment plans</span>
-                <h2>Choose a plan</h2>
+                <span className="section-eyebrow">Plan options</span>
+                <h2>{selectedPeriod} products</h2>
               </div>
-              <span className="network-chip">Terms apply</span>
+              <span className="network-chip">Live yield</span>
             </div>
-            <div style={{ display: "grid", gap: "14px" }}>
-              {plans.map((plan: any) => (
-                <button
-                  key={plan.id}
-                  type="button"
-                  className="section-card"
-                  style={{ padding: "18px", border: selectedPlan?.id === plan.id ? "1px solid rgba(94,234,212,.45)" : "1px solid rgba(148,163,184,.18)", background: selectedPlan?.id === plan.id ? "rgba(94,234,212,.06)" : "transparent", textAlign: "left", cursor: "pointer" }}
-                  onClick={() => setSelectedPlanId(plan.id)}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                    <strong>{plan.name}</strong>
-                    <span className="network-chip">{plan.durationDays} days</span>
-                  </div>
-                  <div style={{ marginTop: "10px", display: "grid", gap: "6px", color: "var(--muted)" }}>
-                    <span>Minimum: ${Number(plan.minimumInvestment).toLocaleString()}</span>
-                    <span>Daily rate: {(Number(plan.dailyRate) * 100).toFixed(2)}%</span>
-                    <span>Asset: {plan.asset}</span>
-                  </div>
-                </button>
-              ))}
+            <div style={{ display: "grid", gap: "16px" }}>
+              {filteredPlans.length > 0 ? filteredPlans.map((plan: any) => {
+                const apy = ((Math.pow(1 + Number(plan.dailyRate), 365) - 1) * 100);
+                return (
+                  <button
+                    key={plan.id}
+                    type="button"
+                    className="section-card"
+                    style={{ padding: "18px", border: selectedPlan?.id === plan.id ? "1px solid rgba(94,234,212,.45)" : "1px solid rgba(148,163,184,.18)", background: selectedPlan?.id === plan.id ? "rgba(94,234,212,.06)" : "transparent", textAlign: "left", cursor: "pointer" }}
+                    onClick={() => setSelectedPlanId(plan.id)}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <strong style={{ fontSize: "18px" }}>{plan.name}</strong>
+                          <span className="network-chip">{plan.asset}</span>
+                        </div>
+                        <p style={{ margin: "8px 0 0", color: "var(--muted)", fontSize: "12px" }}>{plan.description}</p>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: "12px", color: "var(--muted)" }}>Estimated APY</div>
+                        <strong style={{ fontSize: "22px", color: "var(--positive, #5eead4)" }}>{apy.toFixed(2)}%</strong>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: "12px", display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "10px" }}>
+                      <div className="section-card" style={{ padding: "10px 12px", background: "rgba(15,23,42,.45)" }}>
+                        <div style={{ fontSize: "11px", color: "var(--muted)" }}>Min. deposit</div>
+                        <strong>${Number(plan.minimumInvestment).toLocaleString()}</strong>
+                      </div>
+                      <div className="section-card" style={{ padding: "10px 12px", background: "rgba(15,23,42,.45)" }}>
+                        <div style={{ fontSize: "11px", color: "var(--muted)" }}>Term</div>
+                        <strong>{plan.durationDays} days</strong>
+                      </div>
+                      <div className="section-card" style={{ padding: "10px 12px", background: "rgba(15,23,42,.45)" }}>
+                        <div style={{ fontSize: "11px", color: "var(--muted)" }}>Daily rate</div>
+                        <strong>{(Number(plan.dailyRate) * 100).toFixed(2)}%</strong>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: "12px", color: "var(--muted)", fontSize: "11px" }}>
+                      {plan.riskNote}
+                    </div>
+                  </button>
+                );
+              }) : <div className="section-card" style={{ padding: "18px" }}>No plans available for this term.</div>}
             </div>
           </section>
 
@@ -136,7 +196,7 @@ export default function InvestmentsPage() {
             <div className="section-header">
               <div>
                 <span className="section-eyebrow">Investment calculator</span>
-                <h2>Estimate returns</h2>
+                <h2>Move funds into the plan</h2>
               </div>
             </div>
             <div style={{ display: "grid", gap: "14px" }}>
@@ -160,7 +220,7 @@ export default function InvestmentsPage() {
               <div className="section-card" style={{ padding: "18px", display: "grid", gap: "8px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", color: "var(--muted)" }}><span>Estimated ending value</span><strong style={{ color: "var(--foreground)" }}>${estimatedEndValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></div>
                 <div style={{ display: "flex", justifyContent: "space-between", color: "var(--muted)" }}><span>Plan duration</span><strong style={{ color: "var(--foreground)" }}>{selectedPlan?.durationDays ?? 0} days</strong></div>
-                <div style={{ display: "flex", justifyContent: "space-between", color: "var(--muted)" }}><span>Rate</span><strong style={{ color: "var(--foreground)" }}>{selectedPlan ? `${(Number(selectedPlan.dailyRate) * 100).toFixed(2)}% daily` : "—"}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between", color: "var(--muted)" }}><span>Annualized yield</span><strong style={{ color: "var(--foreground)" }}>{annualizedYield.toFixed(2)}%</strong></div>
               </div>
 
               <Button type="button" onClick={() => setConfirmOpen(true)} className="full-button">
@@ -186,7 +246,7 @@ export default function InvestmentsPage() {
               </div>
               <label style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--muted)", fontSize: "12px" }}>
                 <input type="checkbox" defaultChecked />
-                <span>I understand that investment returns are subject to the product terms and risks.</span>
+                <span>I understand the returns are estimates and subject to the product terms and platform risk disclosures.</span>
               </label>
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
                 <button type="button" className="button button-secondary button-sm" onClick={() => setConfirmOpen(false)}>Cancel</button>
