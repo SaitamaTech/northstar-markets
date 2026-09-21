@@ -1,5 +1,6 @@
 import { CheckCircle2, LockKeyhole, Mail, UserRound, X } from "lucide-react";
 import { FormEvent, useState } from "react";
+import { Link } from "wouter";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -17,6 +18,7 @@ export function SupabaseAuthDialog({ open, onOpenChange }: SupabaseAuthDialogPro
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
+  const [consentAccepted, setConsentAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -27,8 +29,22 @@ export function SupabaseAuthDialog({ open, onOpenChange }: SupabaseAuthDialogPro
     setMessage("");
   };
 
+  const handleDialogChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      setConsentAccepted(false);
+      setSignupComplete(false);
+      setMode("signIn");
+      resetFeedback();
+    }
+    onOpenChange(nextOpen);
+  };
+
   const signInWithGoogle = async () => {
     resetFeedback();
+    if (!consentAccepted) {
+      setError("Please accept the Privacy Policy and Cookies policy before continuing.");
+      return;
+    }
     setBusy(true);
     const redirectTo = getAuthRedirectTarget(window.location, "/dashboard");
     const { error: authError } = await supabase.auth.signInWithOAuth({
@@ -44,6 +60,10 @@ export function SupabaseAuthDialog({ open, onOpenChange }: SupabaseAuthDialogPro
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     resetFeedback();
+    if (!consentAccepted) {
+      setError("Please accept the Privacy Policy and Cookies policy before signing in.");
+      return;
+    }
     setBusy(true);
     const result = mode === "signIn"
       ? await supabase.auth.signInWithPassword({ email, password })
@@ -61,14 +81,15 @@ export function SupabaseAuthDialog({ open, onOpenChange }: SupabaseAuthDialogPro
 
   const switchMode = () => {
     resetFeedback();
+    setConsentAccepted(false);
     setSignupComplete(false);
     setMode(current => current === "signIn" ? "signUp" : "signIn");
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogChange}>
       <DialogContent className="auth-dialog">
-        <button type="button" className="auth-dialog-close" aria-label="Close sign in" onClick={() => onOpenChange(false)}><X size={16} /></button>
+        <button type="button" className="auth-dialog-close" aria-label="Close sign in" onClick={() => handleDialogChange(false)}><X size={16} /></button>
         {signupComplete ? <div className="auth-confirmation">
           <span className="auth-confirmation-icon"><CheckCircle2 size={30} /></span>
           <DialogTitle>Account created</DialogTitle>
@@ -82,15 +103,19 @@ export function SupabaseAuthDialog({ open, onOpenChange }: SupabaseAuthDialogPro
           <DialogTitle>{mode === "signIn" ? "Welcome back" : "Create your Northstar account"}</DialogTitle>
           <DialogDescription>{mode === "signIn" ? "Sign in to access your live market workspace." : "Set up your profile to personalize your market workspace."}</DialogDescription>
         </div>
-        <Button type="button" variant="outline" className="auth-google-button" onClick={signInWithGoogle} disabled={busy}><span className="google-mark">G</span> {mode === "signIn" ? "Sign in with Google" : "Create account with Google"}</Button>
+        <Button type="button" variant="outline" className="auth-google-button" onClick={signInWithGoogle} disabled={busy || !consentAccepted}><span className="google-mark">G</span> {mode === "signIn" ? "Sign in with Google" : "Create account with Google"}</Button>
         <div className="auth-divider"><span>{mode === "signIn" ? "or sign in with email" : "or create with email"}</span></div>
         <form className="auth-form" onSubmit={submit}>
           {mode === "signUp" && <div className="auth-field"><Label htmlFor="auth-name">Full name</Label><div className="auth-input-wrap"><UserRound size={15} /><Input id="auth-name" type="text" autoComplete="name" value={fullName} onChange={event => setFullName(event.target.value)} required placeholder="Your name" /></div></div>}
           <div className="auth-field"><Label htmlFor="auth-email">Email</Label><div className="auth-input-wrap"><Mail size={15} /><Input id="auth-email" type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} required placeholder="you@example.com" /></div></div>
           <div className="auth-field"><Label htmlFor="auth-password">Password</Label><div className="auth-input-wrap"><LockKeyhole size={15} /><Input id="auth-password" type="password" autoComplete={mode === "signIn" ? "current-password" : "new-password"} value={password} onChange={event => setPassword(event.target.value)} required minLength={6} placeholder="At least 6 characters" /></div></div>
+          <label className="auth-consent">
+            <input type="checkbox" checked={consentAccepted} onChange={event => setConsentAccepted(event.target.checked)} />
+            <span>I agree to the <Link href="/privacy-policy">Privacy Policy</Link> and <Link href="/cookies">Cookies</Link>.</span>
+          </label>
           {error && <p className="auth-error" role="alert">{error}</p>}
           {message && <p className="auth-message" role="status">{message}</p>}
-          <Button type="submit" className="auth-submit" disabled={busy}>{busy ? "Working..." : mode === "signIn" ? "Sign in" : "Create account"}</Button>
+          <Button type="submit" className="auth-submit" disabled={busy || !consentAccepted}>{busy ? "Working..." : mode === "signIn" ? "Sign in" : "Create account"}</Button>
         </form>
         <p className="auth-switch">{mode === "signIn" ? "New to Northstar?" : "Already have an account?"} <button type="button" onClick={switchMode}>{mode === "signIn" ? "Create an account" : "Sign in"}</button></p>
         </>}
