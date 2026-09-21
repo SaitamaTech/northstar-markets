@@ -17,7 +17,6 @@ import ResearchPage from "@/pages/ResearchPage";
 import ScreenerPage from "@/pages/ScreenerPage";
 import SettingsPage from "@/pages/SettingsPage";
 import WatchlistPage from "@/pages/WatchlistPage";
-import WithdrawalPage from "@/pages/WithdrawalPage";
 import InvestmentsPage from "@/pages/InvestmentsPage";
 import MyInvestmentsPage from "@/pages/MyInvestmentsPage";
 import InvestmentDetailPage from "@/pages/InvestmentDetailPage";
@@ -49,8 +48,6 @@ function Router() {
     <Route path="/cookies" component={CookiesPage} />
     <Route path="/deposit/eth" component={BtcDepositPage} />
     <Route path="/deposit/btc" component={BtcDepositPage} />
-    <Route path="/withdraw" component={WithdrawalPage} />
-    <Route path="/withdrawal" component={WithdrawalPage} />
     <Route path="/deposits" component={BtcDepositsPage} />
     <Route path="/earnings" component={CalendarPage} />
     <Route path="/news/article/:slug" component={ArticlePage} />

@@ -21,7 +21,8 @@ const mobileNav = [
   { label: "Markets", href: "/markets", icon: "◌" },
   { label: "Watchlist", href: "/watchlist", icon: "☆" },
   { label: "Portfolio", href: "/portfolio", icon: "◒" },
-  { label: "More", href: "#more", icon: "⋯" },
+  { label: "Investments", href: "/investments", icon: "◈" },
+  { label: "Calendar", href: "/calendar", icon: "◫" },
 ];
 
 type NotificationItem = {
@@ -85,15 +86,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   const unreadCount = notifications.filter(item => !item.read).length;
-  const mobileMenuLinks = [
-    { label: "Calendar", href: "/calendar" },
-    { label: "Deposit ETH", href: "/deposit/eth" },
-    { label: "Withdraw", href: "/withdraw" },
-    { label: "Deposit history", href: "/deposits" },
-    { label: "Settings", href: "/settings", requireAuth: true },
-    { label: "Privacy Policy", href: "/privacy-policy" },
-    { label: "Cookies", href: "/cookies" },
-  ];
 
   return (
     <>
@@ -107,7 +99,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
           <nav className="desktop-nav" aria-label="Primary navigation">
             {primaryNav.map((item) => <Link key={item.href} href={item.href} className={cn("nav-link", location === item.href && "active")}>{item.label}</Link>)}
-            <div className="more-nav-wrap"><button type="button" className="nav-link more-link" onClick={() => setMoreOpen(open => !open)} aria-expanded={moreOpen}><span>More</span><ChevronDown size={13} /></button>{moreOpen && <div className="more-menu"><Link href="/watchlist" onClick={() => setMoreOpen(false)}>Watchlists</Link><Link href="/portfolio" onClick={() => setMoreOpen(false)}>Portfolio</Link><Link href="/calendar" onClick={() => setMoreOpen(false)}>Calendar</Link><Link href="/deposit/eth" onClick={() => setMoreOpen(false)}>Deposit ETH</Link><Link href="/withdraw" onClick={() => setMoreOpen(false)}>Withdraw</Link><Link href="/deposits" onClick={() => setMoreOpen(false)}>Deposit history</Link>{user && <Link href="/settings" onClick={() => setMoreOpen(false)}><Settings size={13} /> Settings</Link>}</div>}</div>
+            <div className="more-nav-wrap"><button type="button" className="nav-link more-link" onClick={() => setMoreOpen(open => !open)} aria-expanded={moreOpen}><span>More</span><ChevronDown size={13} /></button>{moreOpen && <div className="more-menu"><Link href="/watchlist" onClick={() => setMoreOpen(false)}>Watchlists</Link><Link href="/portfolio" onClick={() => setMoreOpen(false)}>Portfolio</Link><Link href="/investments" onClick={() => setMoreOpen(false)}>Investments</Link><Link href="/investments/my-investments" onClick={() => setMoreOpen(false)}>My investments</Link><Link href="/calendar" onClick={() => setMoreOpen(false)}>Calendar</Link><Link href="/deposit/eth" onClick={() => setMoreOpen(false)}>Deposit ETH</Link><Link href="/deposits" onClick={() => setMoreOpen(false)}>Deposit history</Link>{user && <Link href="/settings" onClick={() => setMoreOpen(false)}><Settings size={13} /> Settings</Link>}</div>}</div>
           </nav>
           <div className="topbar-actions">
             <div className={cn("global-search", searchOpen && "expanded")}>
@@ -130,13 +122,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
       <main>{children}</main>
       <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
-        {mobileNav.map((item) => item.href === "#more" ? <button key={item.href} type="button" className={cn("mobile-nav-item", moreOpen && "active")} onClick={() => setMoreOpen(open => !open)}><span>{item.icon}</span>{item.label}</button> : <Link key={item.href} href={item.href} className={cn("mobile-nav-item", location === item.href && "active")} onClick={() => setMoreOpen(false)}><span>{item.icon}</span>{item.label}</Link>)}
+        {mobileNav.map((item) => <Link key={item.href} href={item.href} className={cn("mobile-nav-item", location === item.href && "active")} onClick={() => setMoreOpen(false)}><span>{item.icon}</span>{item.label}</Link>)}
         <button type="button" className="mobile-nav-item" onClick={() => setSearchOpen(true)}><span>⌕</span>Search</button>
       </nav>
-      {moreOpen && <div className="mobile-more-menu" role="menu" aria-label="More menu">
-        {mobileMenuLinks.filter((item) => !item.requireAuth || Boolean(user)).map((item) => <Link key={item.href} href={item.href} className="mobile-more-item" onClick={() => setMoreOpen(false)}>{item.label}</Link>)}
-        {!user ? <button type="button" className="mobile-more-item" onClick={() => { setAuthOpen(true); setMoreOpen(false); }}>Sign in</button> : <button type="button" className="mobile-more-item" onClick={async () => { await logout(); setMoreOpen(false); }}>Sign out</button>}
-      </div>}
       <footer className="legal-footer">
         <Link href="/privacy-policy">Privacy Policy</Link>
         <Link href="/cookies">Cookies</Link>

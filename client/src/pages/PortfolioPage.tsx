@@ -96,8 +96,8 @@ export default function PortfolioPage() {
             </p>
           </div>
           <div className="heading-actions">
-            <Link href="/withdraw" className="button button-secondary button-sm">
-              Withdraw
+            <Link href="/investments" className="button button-secondary button-sm">
+              Invest
             </Link>
             <button type="button" className="button button-primary button-sm pro-button" onClick={handleAddTransaction}>
               <Plus size={14} /> Add transaction
