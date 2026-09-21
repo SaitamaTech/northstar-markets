@@ -1,0 +1,174 @@
+import QRCode from "qrcode";
+import { CheckCircle2, Copy, ExternalLink, Loader2, ShieldCheck, Wallet2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AppShell } from "@/components/AppShell";
+import { SupabaseAuthDialog } from "@/components/SupabaseAuthDialog";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { notify } from "@/lib/notify";
+import { trpc } from "@/lib/trpc";
+import { connectTrustWallet, restoreWalletConnection, type WalletConnection } from "@/lib/walletConnect";
+
+export default function BtcDepositPage() {
+  const { user, loading: authLoading } = useAuth();
+  const [authOpen, setAuthOpen] = useState(false);
+  const [qr, setQr] = useState("");
+  const [connectedWallet, setConnectedWallet] = useState<WalletConnection | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletError, setWalletError] = useState<string | null>(null);
+
+  const walletStatusQuery = trpc.wallet.status.useQuery(undefined, { enabled: Boolean(user), staleTime: 30_000 });
+  const walletConnectMutation = trpc.wallet.connect.useMutation();
+  const walletDisconnectMutation = trpc.wallet.disconnect.useMutation();
+  const addressQuery = trpc.btc.depositAddress.useQuery(undefined, { enabled: Boolean(user), staleTime: 60_000 });
+  const balanceQuery = trpc.btc.balance.useQuery(undefined, { enabled: Boolean(user), refetchInterval: 15_000 });
+  const priceQuery = trpc.market.instrument.useQuery({ symbol: "BTC" }, { staleTime: 30_000, refetchInterval: 30_000 });
+  const address = addressQuery.data?.address;
+  const network = addressQuery.data?.network ?? "mainnet";
+  const requiresLogin = !authLoading && (addressQuery.error?.message.includes("Please login") || !user);
+  const addressPoolMissing = addressQuery.error?.message.includes("BTC_DEPOSIT_ADDRESS_POOL");
+  const btc = balanceQuery.data?.btc ?? 0;
+  const price = priceQuery.data?.price ?? 0;
+
+  const networkLabel = connectedWallet?.network === "eip155:1" ? "Mainnet" : connectedWallet?.network === "eip155:11155111" ? "Sepolia" : connectedWallet?.network ?? "Mainnet";
+  const formattedAddress = connectedWallet ? `${connectedWallet.address.slice(0, 6)}...${connectedWallet.address.slice(-4)}` : "";
+
+  const connectWallet = async () => {
+    if (authLoading) return;
+    if (!user) {
+      setAuthOpen(true);
+      return;
+    }
+
+    setWalletError(null);
+    setWalletLoading(true);
+
+    try {
+      const connected = await connectTrustWallet();
+      const saved = await walletConnectMutation.mutateAsync({
+        walletAddress: connected.address,
+        network: connected.network,
+        walletProvider: connected.walletProvider,
+      });
+
+      setConnectedWallet({
+        address: saved.walletAddress,
+        network: saved.network,
+        walletProvider: saved.walletProvider,
+      });
+
+      notify("Wallet connected and saved to your account.", "success");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Wallet connection failed.";
+      setWalletError(message);
+      notify("Wallet connection failed.", "error");
+    } finally {
+      setWalletLoading(false);
+    }
+  };
+
+  const disconnectWallet = async () => {
+    if (!user) return;
+
+    setWalletLoading(true);
+    setWalletError(null);
+
+    try {
+      await walletDisconnectMutation.mutateAsync();
+      setConnectedWallet(null);
+      await walletStatusQuery.refetch();
+      notify("Wallet disconnected.", "success");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to disconnect the wallet.";
+      setWalletError(message);
+      notify("Unable to disconnect the wallet.", "error");
+    } finally {
+      setWalletLoading(false);
+    }
+  };
+
+  const copyWalletAddress = async () => {
+    if (!connectedWallet?.address) return;
+    await navigator.clipboard.writeText(connectedWallet.address);
+    notify("Wallet address copied.", "success");
+  };
+
+  useEffect(() => {
+    if (!user) {
+      setConnectedWallet(null);
+      return;
+    }
+
+    if (walletStatusQuery.data?.connected && walletStatusQuery.data.walletAddress) {
+      setConnectedWallet({
+        address: walletStatusQuery.data.walletAddress,
+        network: walletStatusQuery.data.network ?? "eip155:1",
+        walletProvider: walletStatusQuery.data.walletProvider ?? "trust",
+      });
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      const restored = await restoreWalletConnection();
+      if (!cancelled && restored) {
+        setConnectedWallet(restored);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, walletStatusQuery.data]);
+
+  useEffect(() => {
+    if (!address) return;
+    void QRCode.toDataURL(`ethereum:${address}`, { width: 220, margin: 2, color: { dark: "#0b1725", light: "#ffffff" } }).then(setQr);
+  }, [address]);
+
+  const copyAddress = async () => {
+    if (!address) return;
+    await navigator.clipboard.writeText(address);
+    notify("Ethereum deposit address copied.", "success");
+  };
+
+  return <AppShell><div className="page-shell feature-shell btc-deposit-shell">
+    <div className="workspace-heading feature-heading"><div><div className="breadcrumb"><span>Wallet</span><span>/</span><strong>Deposit ETH</strong></div><h1>Deposit Ethereum</h1><p>Connect your wallet and send ETH to your assigned address to prepare the funding flow.</p></div><div className={network === "testnet" ? "network-badge testnet" : "network-badge"}>{network === "testnet" ? "TESTNET MODE" : "ETHEREUM MAINNET"}</div></div>
+    {authLoading ? <section className="section-card settings-auth-card"><ShieldCheck size={32} /><h2>Checking your account</h2><p>Verifying your secure session before loading your Ethereum deposit details.</p></section> : requiresLogin ? <section className="section-card settings-auth-card"><ShieldCheck size={32} /><h2>Sign in to receive ETH</h2><p>Your deposit address and transaction history are private to your authenticated account.</p><Button type="button" onClick={() => setAuthOpen(true)}>Sign in</Button></section> : <>
+      <div className="btc-summary-grid"><section className="section-card btc-balance-card"><span className="section-eyebrow">Available ETH balance</span><strong>Ξ {btc.toFixed(8)}</strong><span>Estimated value ${ (btc * price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }</span></section><section className="section-card btc-balance-card"><span className="section-eyebrow">Current ETH price</span><strong>${price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong><span className={priceQuery.data?.changePct && priceQuery.data.changePct >= 0 ? "positive" : "negative"}>{priceQuery.data?.changePct ? `${priceQuery.data.changePct >= 0 ? "+" : ""}${priceQuery.data.changePct.toFixed(2)}% 24H` : "Live quote"}</span></section></div>
+      <div className="btc-deposit-grid">
+        <section className="section-card btc-address-card">
+          <div className="section-header">
+            <div>
+              <span className="section-eyebrow">Wallet</span>
+              <h2>Connect wallet</h2>
+            </div>
+            <span className="network-chip">{connectedWallet ? networkLabel : "Not connected"}</span>
+          </div>
+          {walletLoading ? <div className="btc-loading"><Loader2 className="spin" size={18} /> Connecting wallet...</div> : connectedWallet ? <>
+            <div className="btc-address-box"><code>{formattedAddress}</code><button type="button" aria-label="Copy wallet address" onClick={copyWalletAddress}><Copy size={16} /></button></div>
+            <div className="wallet-meta-row">
+              <span className="wallet-meta-pill">Provider: {connectedWallet.walletProvider}</span>
+              <span className="wallet-meta-pill">Network: {networkLabel}</span>
+            </div>
+            <div className="wallet-actions-row">
+              <Button type="button" variant="outline" onClick={copyWalletAddress}><Copy size={14} /> Copy address</Button>
+              <Button type="button" variant="secondary" onClick={disconnectWallet}><CheckCircle2 size={14} /> Disconnect Wallet</Button>
+            </div>
+          </> : <>
+            <div className="wallet-empty-state">
+              <div className="wallet-empty-icon"><Wallet2 size={26} /></div>
+              <p>Link your Trust Wallet to prepare a secure, auditable ETH deposit flow. Wallet connection is separate from funding the account.</p>
+            </div>
+            <Button type="button" onClick={connectWallet} className="full-button"><Wallet2 size={15} /> Connect Wallet</Button>
+          </>}
+          {walletError ? <p className="btc-provider-error">{walletError}</p> : null}
+        </section>
+        <section className="section-card btc-address-card"><div className="section-header"><div><span className="section-eyebrow">Your deposit address</span><h2>Ethereum network</h2></div><span className="network-chip">{network}</span></div>{addressQuery.isLoading ? <div className="btc-loading">Assigning a secure deposit address...</div> : addressPoolMissing ? <div className="btc-provider-error">Ethereum deposits are not configured yet. Add a server-side mainnet address pool before accepting funds.</div> : addressQuery.error ? <div className="btc-provider-error">Unable to assign an Ethereum deposit address right now. Please try again shortly.</div> : <><div className="btc-qr-wrap">{qr && <img src={qr} alt="QR code for Ethereum deposit address" />}</div><div className="btc-address-box"><code>{address}</code><button type="button" aria-label="Copy Ethereum deposit address" onClick={copyAddress}><Copy size={16} /></button></div><p className="btc-warning">Only send ETH on the Ethereum network to this address. Sending other assets or using another network may result in permanent loss. Deposit verification and balance credit happen only after the blockchain confirms the transaction.</p></>}</section>
+      </div>
+      <aside className="section-card btc-info-card"><span className="section-eyebrow">Deposit details</span><div><span>Minimum deposit</span><strong>0.0001 ETH</strong></div><div><span>Required confirmations</span><strong>{addressQuery.data?.requiredConfirmations ?? 3}</strong></div><div><span>Estimated confirmation time</span><strong>1-5 minutes</strong></div><div><span>Accounting</span><strong>Credited after confirmation</strong></div><a href="/deposits" className="button button-secondary button-sm">View deposit history <ExternalLink size={14} /></a></aside>
+    </>}
+    <SupabaseAuthDialog open={authOpen} onOpenChange={setAuthOpen} />
+  </div></AppShell>;
+}
