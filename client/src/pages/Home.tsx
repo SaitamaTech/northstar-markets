@@ -20,6 +20,13 @@ function Change({ value, suffix = "%" }: { value: number; suffix?: string }) {
   return <span className={cn("change-inline", positive ? "positive" : "negative")}>{positive ? "+" : ""}{value.toFixed(2)}{suffix}</span>;
 }
 
+function getTimeGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
 export default function Home() {
   const { displayName, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
@@ -36,6 +43,7 @@ export default function Home() {
   const refresh = () => { void Promise.all([overviewQuery.refetch(), instrumentsQuery.refetch(), newsQuery.refetch(), eventsQuery.refetch(), selectedQuery.refetch(), chartQuery.refetch(), portfolioQuery.refetch()]); };
   const instruments = instrumentsQuery.data ?? [];
   const selected = selectedQuery.data ?? instruments.find((item) => item.symbol === selectedSymbol) ?? instruments[0];
+  const greeting = getTimeGreeting();
   const movers = useMemo(() => {
     if (moverTab === "Top losers") return [...instruments].sort((a, b) => a.changePct - b.changePct).slice(0, 5);
     if (moverTab === "Most active") return [...instruments].sort((a, b) => Number(b.volume.replace(/[^0-9.]/g, "")) - Number(a.volume.replace(/[^0-9.]/g, ""))).slice(0, 5);
@@ -46,7 +54,7 @@ export default function Home() {
     <AppShell>
       <div className="page-shell home-shell">
         <div className="workspace-heading">
-          <div><div className="breadcrumb"><span>Workspace</span><span>/</span><strong>Global markets</strong></div><h1>Good afternoon{displayName ? `, ${displayName}` : ""}<span className="heading-period">.</span></h1><p>Markets are open. Here is your concise read on what is moving now.</p></div>
+          <div><div className="breadcrumb"><span>Workspace</span><span>/</span><strong>Global markets</strong></div><h1>{greeting}{displayName ? `, ${displayName}` : ""}<span className="heading-period">.</span></h1><p>Markets are open. Here is your concise read on what is moving now.</p></div>
           <div className="heading-actions"><span className="data-asof"><span className="live-dot" /> Data as of {new Date().toLocaleTimeString()}</span><button type="button" className="button button-secondary button-sm" onClick={refresh}><RefreshCw size={14} /> Refresh</button></div>
         </div>
 
