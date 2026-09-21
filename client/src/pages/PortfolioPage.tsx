@@ -70,6 +70,13 @@ export default function PortfolioPage() {
     ? summary.slice(0, 12).map((position: any) => Number(position.currentValue ?? 0))
     : [1200, 1400, 1600, 1550, 1800, 2100, 2050, 2230, 2400, 2650, 2800, 2950];
 
+  const portfolioHighlights = [
+    { label: "Net exposure", value: `${((totalValue / Math.max(investedAmount, 1)) * 100).toFixed(0)}%`, subtext: investedAmount > 0 ? "capital deployed" : "awaiting positions", tone: "positive" },
+    { label: "Daily P/L", value: `$${Math.abs(profitLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, subtext: profitLoss >= 0 ? "winning day" : "pullback day", tone: profitLoss >= 0 ? "positive" : "negative" },
+    { label: "Cash on hand", value: `$${Number(portfolio?.cashBalance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, subtext: "available liquidity", tone: "neutral" },
+    { label: "Position count", value: String(positions.length), subtext: positions.length ? "live names tracked" : "no active trades", tone: "neutral" },
+  ];
+
   return (
     <AppShell>
       <div className="page-shell feature-shell">
@@ -90,6 +97,15 @@ export default function PortfolioPage() {
               <Plus size={14} /> Add transaction
             </button>
           </div>
+        </div>
+        <div className="portfolio-metrics-strip">
+          {portfolioHighlights.map((item) => (
+            <div key={item.label} className={cn("section-card metric-strip-card", item.tone)}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.subtext}</small>
+            </div>
+          ))}
         </div>
         <div className="portfolio-top-grid">
           <section className="section-card portfolio-value-card animated-card">

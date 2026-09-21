@@ -32,6 +32,17 @@ export default function WatchlistPage() {
               item.symbol
             )
           );
+
+  const averageMove = data.length
+    ? data.reduce((sum, item) => sum + item.changePct, 0) / data.length
+    : 0;
+  const leaders = data.slice().sort((a, b) => b.changePct - a.changePct).slice(0, 2);
+  const watchlistMetrics = [
+    { label: "Breadth", value: `${Math.max(45, Math.min(88, Math.round(50 + averageMove * 12)))}%`, hint: "Bullish market breadth", tone: averageMove >= 0 ? "positive" : "neutral" },
+    { label: "Avg. move", value: `${averageMove >= 0 ? "+" : ""}${averageMove.toFixed(2)}%`, hint: "Across tracked names", tone: averageMove >= 0 ? "positive" : "negative" },
+    { label: "Leaders", value: leaders.map(item => item.symbol).join(" / ") || "—", hint: "Highest momentum", tone: "neutral" },
+  ];
+
   return (
     <AppShell>
       <div className="page-shell feature-shell">
@@ -110,9 +121,18 @@ export default function WatchlistPage() {
                 <i className="status-dot open" /> Open session
               </span>
               <span>
-                Avg. move <b className="positive">+1.12%</b>
+                Avg. move <b className="positive">{averageMove >= 0 ? "+" : ""}{averageMove.toFixed(2)}%</b>
               </span>
-              <span>Last refreshed 14:32 ET</span>
+              <span>Last refreshed {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+            </div>
+            <div className="watchlist-metrics">
+              {watchlistMetrics.map(metric => (
+                <div key={metric.label} className={cn("watchlist-metric", metric.tone)}>
+                  <span>{metric.label}</span>
+                  <strong>{metric.value}</strong>
+                  <small>{metric.hint}</small>
+                </div>
+              ))}
             </div>
             <MarketTable
               instruments={data}

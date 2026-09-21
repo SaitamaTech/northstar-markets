@@ -34,6 +34,7 @@ export type EconomicEvent = {
   actual: string;
   forecast: string;
   previous: string;
+  date?: string;
 };
 
 export const marketOverview = [
@@ -67,13 +68,65 @@ export const newsItems: NewsItem[] = [
   { id: "n4", category: "CRYPTO", headline: "Bitcoin liquidity improves as digital-asset funds see fourth straight inflow", source: "Blockline", time: "1 hr ago", readTime: "3 min read", tone: "rose" },
 ];
 
-export const economicEvents: EconomicEvent[] = [
-  { time: "09:45", country: "United States", flag: "US", event: "S&P Global Manufacturing PMI", importance: "medium", actual: "47.9", forecast: "48.1", previous: "49.6" },
-  { time: "10:00", country: "United States", flag: "US", event: "ISM Manufacturing PMI", importance: "high", actual: "47.2", forecast: "47.5", previous: "46.8" },
-  { time: "11:30", country: "Euro Area", flag: "EU", event: "ECB Lane Speech", importance: "low", actual: "—", forecast: "—", previous: "—" },
-  { time: "14:00", country: "United States", flag: "US", event: "JOLTS Job Openings", importance: "high", actual: "—", forecast: "8.10M", previous: "8.18M" },
-  { time: "16:00", country: "Japan", flag: "JP", event: "Consumer Confidence", importance: "medium", actual: "—", forecast: "36.4", previous: "36.7" },
-];
+export function getEconomicEvents(referenceDate = new Date()): EconomicEvent[] {
+  const today = new Date(referenceDate);
+  today.setHours(0, 0, 0, 0);
+
+  const mondayOffset = (today.getDay() + 6) % 7;
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - mondayOffset);
+
+  const dates = Array.from({ length: 5 }, (_, index) => {
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + index);
+    return date;
+  });
+
+  const templates: Array<Omit<EconomicEvent, "date">> = [
+    { time: "09:45", country: "United States", flag: "US", event: "S&P Global Manufacturing PMI", importance: "medium", actual: "47.9", forecast: "48.1", previous: "49.6" },
+    { time: "10:00", country: "United States", flag: "US", event: "ISM Manufacturing PMI", importance: "high", actual: "47.2", forecast: "47.5", previous: "46.8" },
+    { time: "11:30", country: "Euro Area", flag: "EU", event: "ECB Lane Speech", importance: "low", actual: "—", forecast: "—", previous: "—" },
+    { time: "14:00", country: "United States", flag: "US", event: "JOLTS Job Openings", importance: "high", actual: "—", forecast: "8.10M", previous: "8.18M" },
+    { time: "16:00", country: "Japan", flag: "JP", event: "Consumer Confidence", importance: "medium", actual: "—", forecast: "36.4", previous: "36.7" },
+  ];
+
+  return templates.map((template, index) => ({
+    ...template,
+    date: dates[index]?.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+  }));
+}
+
+export const economicEvents = getEconomicEvents();
+
+export function getUpcomingEarnings(referenceDate = new Date()) {
+  const today = new Date(referenceDate);
+  today.setHours(0, 0, 0, 0);
+
+  const mondayOffset = (today.getDay() + 6) % 7;
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - mondayOffset);
+
+  const dayOffsets = [0, 1, 2, 3, 4];
+  const rows = [
+    ["Broadcom", "$1.21", "$13.0B", "After close"],
+    ["Adobe", "$4.53", "$5.37B", "After close"],
+    ["Oracle", "$1.48", "$13.2B", "After close"],
+    ["Lennar", "$3.92", "$9.1B", "Before open"],
+    ["MongoDB", "$0.97", "$0.45B", "After close"],
+  ];
+
+  return rows.map((row, index) => {
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + dayOffsets[index % dayOffsets.length]);
+    return {
+      company: row[0],
+      eps: row[1],
+      revenue: row[2],
+      dateLabel: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      session: row[3],
+    };
+  });
+}
 
 export const categoryLabels: Record<AssetCategory, string> = {
   index: "Indices",

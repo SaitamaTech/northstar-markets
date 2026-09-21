@@ -4,16 +4,49 @@ import { AppShell } from "@/components/AppShell";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import { notify } from "@/lib/notify";
+import { getUpcomingEarnings } from "@shared/market-data";
+
+export function getCalendarWeek(referenceDate = new Date()) {
+  const today = new Date(referenceDate);
+  today.setHours(0, 0, 0, 0);
+
+  const mondayOffset = (today.getDay() + 6) % 7;
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - mondayOffset);
+
+  const days = Array.from({ length: 5 }, (_, index) => {
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + index);
+
+    return {
+      date,
+      key: date.toISOString(),
+      shortLabel: `${date.toLocaleDateString("en-US", { weekday: "short" }).slice(0, 3)} ${String(date.getDate()).padStart(2, "0")}`,
+      fullLabel: date.toLocaleDateString("en-US", { month: "long", day: "2-digit", year: "numeric" }),
+    };
+  });
+
+  const isWeekend = today.getDay() === 0 || today.getDay() === 6;
+  const selectedDay = isWeekend ? 4 : Math.min((today.getDay() + 6) % 7, 4);
+  const rangeLabel = `${days[0].date.toLocaleDateString("en-US", { month: "long", day: "2-digit" })} – ${days[days.length - 1].date.toLocaleDateString("en-US", { month: "long", day: "2-digit", year: "numeric" })}`;
+
+  return {
+    days,
+    selectedDay,
+    rangeLabel,
+  };
+}
 
 export default function CalendarPage() {
   const [tab, setTab] = useState<"economic" | "earnings">("economic");
-  const [selectedDay, setSelectedDay] = useState(1);
+  const calendar = getCalendarWeek();
+  const earnings = getUpcomingEarnings();
+  const [selectedDay, setSelectedDay] = useState(calendar.selectedDay);
   const eventsQuery = trpc.market.events.useQuery(undefined, {
     staleTime: 60_000,
   });
-  const days = ["Mon 02", "Tue 03", "Wed 04", "Thu 05", "Fri 06"];
   const exportCalendar = () => {
-    const blob = new Blob(["Northstar Markets calendar export\nSeptember 02 - 06, 2026"], { type: "text/calendar" });
+    const blob = new Blob([`Northstar Markets calendar export\n${calendar.rangeLabel}\n${(eventsQuery.data ?? []).slice(0, 5).map((event) => `- ${event.event} (${event.time})`).join("\n")}`], { type: "text/calendar" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -21,6 +54,10 @@ export default function CalendarPage() {
     link.click();
     URL.revokeObjectURL(url);
   };
+  const visibleEvents = (eventsQuery.data ?? []).slice(0, 5).map((event, index) => ({
+    ...event,
+    dateLabel: calendar.days[index]?.shortLabel ?? event.date ?? "Today",
+  }));
   return (
     <AppShell>
       <div className="page-shell feature-shell">
@@ -63,7 +100,7 @@ export default function CalendarPage() {
           <div className="calendar-toolbar">
             <div className="date-nav">
               <button type="button" onClick={() => notify("Previous week is not available from the current calendar feed.")}>‹</button>
-              <strong>September 02 – 06, 2026</strong>
+              <strong>{calendar.rangeLabel}</strong>
               <button type="button" onClick={() => notify("Next week is not available from the current calendar feed.")}>›</button>
             </div>
             <div className="calendar-filters">
@@ -76,16 +113,16 @@ export default function CalendarPage() {
             </div>
           </div>
           <div className="day-strip">
-            {days.map((day, i) => (
+            {calendar.days.map((day, i) => (
               <button
                 type="button"
                 className={cn("day-pill", i === selectedDay && "active")}
-                key={day}
+                key={day.key}
                 onClick={() => setSelectedDay(i)}
               >
-                <span>{day.split(" ")[0]}</span>
-                <b>{day.split(" ")[1]}</b>
-                {i === 1 && <i />}
+                <span>{day.shortLabel.split(" ")[0]}</span>
+                <b>{day.shortLabel.split(" ")[1]}</b>
+                {day.date.toDateString() === new Date().toDateString() && <i />}
               </button>
             ))}
           </div>
@@ -101,9 +138,9 @@ export default function CalendarPage() {
                 <span>Previous</span>
                 <span />
               </div>
-              {(eventsQuery.data ?? []).map(event => (
+              {visibleEvents.map((event, index) => (
                 <div
-                  className="calendar-table-row"
+                  className={cn("calendar-table-row", index === selectedDay && "selected-row")}
                   key={`${event.time}-${event.event}`}
                 >
                   <span className="event-time">
@@ -116,7 +153,7 @@ export default function CalendarPage() {
                   </span>
                   <span className="calendar-event-name">
                     <b>{event.event}</b>
-                    <small>Macro data</small>
+                    <small>{event.dateLabel}</small>
                   </span>
                   <span>
                     <i
@@ -146,24 +183,19 @@ export default function CalendarPage() {
                 <span>Session</span>
                 <span />
               </div>
-              {[
-                ["Broadcom", "$1.21", "$13.0B", "Sep 04", "After close"],
-                ["Adobe", "$4.53", "$5.37B", "Sep 05", "After close"],
-                ["Oracle", "$1.48", "$13.2B", "Sep 09", "After close"],
-                ["Lennar", "$3.92", "$9.1B", "Sep 12", "Before open"],
-              ].map(row => (
-                <div className="calendar-table-row earnings-row" key={row[0]}>
+              {earnings.map(row => (
+                <div className="calendar-table-row earnings-row" key={row.company}>
                   <span className="company-cell">
                     <span className="asset-mark asset-stock">
-                      {row[0].slice(0, 2).toUpperCase()}
+                      {row.company.slice(0, 2).toUpperCase()}
                     </span>
-                    <b>{row[0]}</b>
+                    <b>{row.company}</b>
                   </span>
-                  <span className="mono">{row[1]}</span>
-                  <span className="mono">{row[2]}</span>
-                  <span>{row[3]}</span>
-                  <span className="session-badge">{row[4]}</span>
-                  <button type="button" className="icon-button subtle" onClick={() => notify(`Added ${row[0]} earnings to your watchlist.`, "success")}>
+                  <span className="mono">{row.eps}</span>
+                  <span className="mono">{row.revenue}</span>
+                  <span>{row.dateLabel}</span>
+                  <span className="session-badge">{row.session}</span>
+                  <button type="button" className="icon-button subtle" onClick={() => notify(`Added ${row.company} earnings to your watchlist.`, "success")}>
                     <Star size={14} />
                   </button>
                 </div>
