@@ -16,6 +16,7 @@ import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import { notify } from "@/lib/notify";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { calculateDailyInterest } from "@shared/savings";
 
 export default function PortfolioPage() {
   const { isAuthenticated } = useAuth();
@@ -40,6 +41,8 @@ export default function PortfolioPage() {
     });
     return allocation.sort((a: any, b: any) => b.value - a.value);
   }, [positions, totalValue]);
+
+  const dailySavingsYield = calculateDailyInterest(totalValue || 0, 0.12);
 
   const handleCopySnapshot = async () => {
     const snapshot = [
@@ -72,7 +75,7 @@ export default function PortfolioPage() {
 
   const portfolioHighlights = [
     { label: "Net exposure", value: `${((totalValue / Math.max(investedAmount, 1)) * 100).toFixed(0)}%`, subtext: investedAmount > 0 ? "capital deployed" : "awaiting positions", tone: "positive" },
-    { label: "Daily P/L", value: `$${Math.abs(profitLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, subtext: profitLoss >= 0 ? "winning day" : "pullback day", tone: profitLoss >= 0 ? "positive" : "negative" },
+    { label: "Daily yield", value: `$${dailySavingsYield.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, subtext: "auto-added each day", tone: "positive" },
     { label: "Cash on hand", value: `$${Number(portfolio?.cashBalance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, subtext: "available liquidity", tone: "neutral" },
     { label: "Position count", value: String(positions.length), subtext: positions.length ? "live names tracked" : "no active trades", tone: "neutral" },
   ];
@@ -93,6 +96,9 @@ export default function PortfolioPage() {
             </p>
           </div>
           <div className="heading-actions">
+            <Link href="/withdraw" className="button button-secondary button-sm">
+              Withdraw
+            </Link>
             <button type="button" className="button button-primary button-sm pro-button" onClick={handleAddTransaction}>
               <Plus size={14} /> Add transaction
             </button>

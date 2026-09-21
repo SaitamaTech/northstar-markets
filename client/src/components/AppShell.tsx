@@ -88,6 +88,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const mobileMenuLinks = [
     { label: "Calendar", href: "/calendar" },
     { label: "Deposit ETH", href: "/deposit/eth" },
+    { label: "Withdraw", href: "/withdraw" },
     { label: "Deposit history", href: "/deposits" },
     { label: "Settings", href: "/settings", requireAuth: true },
     { label: "Privacy Policy", href: "/privacy-policy" },
@@ -106,7 +107,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
           <nav className="desktop-nav" aria-label="Primary navigation">
             {primaryNav.map((item) => <Link key={item.href} href={item.href} className={cn("nav-link", location === item.href && "active")}>{item.label}</Link>)}
-            <div className="more-nav-wrap"><button type="button" className="nav-link more-link" onClick={() => setMoreOpen(open => !open)} aria-expanded={moreOpen}><span>More</span><ChevronDown size={13} /></button>{moreOpen && <div className="more-menu"><Link href="/watchlist" onClick={() => setMoreOpen(false)}>Watchlists</Link><Link href="/portfolio" onClick={() => setMoreOpen(false)}>Portfolio</Link><Link href="/calendar" onClick={() => setMoreOpen(false)}>Calendar</Link><Link href="/deposit/eth" onClick={() => setMoreOpen(false)}>Deposit ETH</Link><Link href="/deposits" onClick={() => setMoreOpen(false)}>Deposit history</Link>{user && <Link href="/settings" onClick={() => setMoreOpen(false)}><Settings size={13} /> Settings</Link>}</div>}</div>
+            <div className="more-nav-wrap"><button type="button" className="nav-link more-link" onClick={() => setMoreOpen(open => !open)} aria-expanded={moreOpen}><span>More</span><ChevronDown size={13} /></button>{moreOpen && <div className="more-menu"><Link href="/watchlist" onClick={() => setMoreOpen(false)}>Watchlists</Link><Link href="/portfolio" onClick={() => setMoreOpen(false)}>Portfolio</Link><Link href="/calendar" onClick={() => setMoreOpen(false)}>Calendar</Link><Link href="/deposit/eth" onClick={() => setMoreOpen(false)}>Deposit ETH</Link><Link href="/withdraw" onClick={() => setMoreOpen(false)}>Withdraw</Link><Link href="/deposits" onClick={() => setMoreOpen(false)}>Deposit history</Link>{user && <Link href="/settings" onClick={() => setMoreOpen(false)}><Settings size={13} /> Settings</Link>}</div>}</div>
           </nav>
           <div className="topbar-actions">
             <div className={cn("global-search", searchOpen && "expanded")}>
