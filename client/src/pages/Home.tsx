@@ -95,6 +95,54 @@ export default function Home() {
           </section>
         </div>
 
+        <div className="reality-grid">
+          <section className="section-card pulse-card">
+            <SectionHeader eyebrow="Risk monitor" title="Macro pulse" action={<span className="data-asof"><span className="live-dot" /> Real-time</span>} />
+            <div className="pulse-grid">
+              <div className="pulse-metric positive">
+                <span>Risk appetite</span>
+                <strong>66 / 100</strong>
+                <small>Risk-on bias improving</small>
+              </div>
+              <div className="pulse-metric neutral">
+                <span>BTC dominance</span>
+                <strong>56.1%</strong>
+                <small>Up 0.8% today</small>
+              </div>
+              <div className="pulse-metric negative">
+                <span>Volatility</span>
+                <strong>18.4%</strong>
+                <small>Elevated but stable</small>
+              </div>
+            </div>
+            <div className="risk-meter-wrap">
+              <div className="risk-meter-labels"><span>Cooling</span><span>Balanced</span><span>Risky</span></div>
+              <div className="risk-meter"><span style={{ width: "66%" }} /></div>
+            </div>
+          </section>
+
+          <section className="section-card execution-card">
+            <SectionHeader eyebrow="Execution flow" title="Order book" action={<Link href="/portfolio" className="text-button">Portfolio <ArrowRight size={14} /></Link>} />
+            <div className="order-feed">
+              <div className="feed-row">
+                <span className="feed-pill positive">Buy</span>
+                <div><strong>BTC / USD</strong><small>Institutional sweep</small></div>
+                <b>$68,420</b>
+              </div>
+              <div className="feed-row">
+                <span className="feed-pill neutral">Hold</span>
+                <div><strong>ETH / USD</strong><small>Range rotation</small></div>
+                <b>$3,540</b>
+              </div>
+              <div className="feed-row">
+                <span className="feed-pill negative">Sell</span>
+                <div><strong>NVDA</strong><small>Profit-taking</small></div>
+                <b>$130.42</b>
+              </div>
+            </div>
+          </section>
+        </div>
+
         <div className="workspace-footer"><span><ShieldCheck size={14} /> Market intelligence platform · Not financial advice</span><span>Quotes update automatically when the live provider is available.</span></div>
       </div>
     </AppShell>

@@ -96,6 +96,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+    <div className="background-orbit" aria-hidden="true"><div className="background-grid" /></div>
     <div className="app-shell">
       <header className="topbar">
         <div className="topbar-inner">
