@@ -1,0 +1,27 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="120" y1="80" x2="1040" y2="560" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#09131F"/>
+      <stop offset="0.5" stop-color="#111E2E"/>
+      <stop offset="1" stop-color="#1D0F2E"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="220" y1="160" x2="760" y2="520" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6EE7D7"/>
+      <stop offset="1" stop-color="#7C9EFF"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" rx="32" fill="url(#bg)"/>
+  <circle cx="230" cy="200" r="220" fill="#0C2438" fill-opacity="0.85"/>
+  <circle cx="960" cy="110" r="150" fill="#33214E" fill-opacity="0.8"/>
+  <circle cx="850" cy="510" r="200" fill="#102C30" fill-opacity="0.7"/>
+  <path d="M260 250L380 170L500 250L380 430L260 250Z" fill="url(#accent)" opacity="0.8"/>
+  <path d="M390 170L560 250L500 430L370 430L390 170Z" fill="#0F1E2D" opacity="0.9"/>
+  <path d="M560 250L680 170L780 250L700 430L560 250Z" fill="#67E9D6" fill-opacity="0.8"/>
+  <rect x="118" y="58" width="210" height="46" rx="23" fill="rgba(110,231,215,0.12)" stroke="rgba(110,231,215,0.35)"/>
+  <text x="145" y="89" fill="#A8F1E5" font-size="20" font-family="Segoe UI, Arial, sans-serif" font-weight="700">NORTHSTAR</text>
+  <text x="118" y="330" fill="#F4F8FB" font-size="64" font-family="Segoe UI, Arial, sans-serif" font-weight="700">Market intelligence</text>
+  <text x="118" y="395" fill="#9CB3CC" font-size="28" font-family="Segoe UI, Arial, sans-serif">without the noise</text>
+  <rect x="118" y="440" width="290" height="62" rx="31" fill="#12273B" stroke="#2C445F"/>
+  <text x="150" y="481" fill="#DDECF8" font-size="24" font-family="Segoe UI, Arial, sans-serif" font-weight="600">Live market signals</text>
+  <text x="118" y="560" fill="#6E87A0" font-size="18" font-family="Segoe UI, Arial, sans-serif">northstarmarkets.com</text>
+</svg>
