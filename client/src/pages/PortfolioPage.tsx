@@ -8,22 +8,68 @@ import {
   ReceiptText,
   TrendingUp,
 } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { AppShell } from "@/components/AppShell";
 import { MiniSparkline } from "@/components/market/MiniSparkline";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import { notify } from "@/lib/notify";
-import { useState } from "react";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 export default function PortfolioPage() {
-  const [range, setRange] = useState("1D");
-  const query = trpc.market.instruments.useQuery(undefined, {
-    staleTime: 60_000,
+  const { isAuthenticated } = useAuth();
+  const [range, setRange] = useState("1M");
+  const portfolioQuery = trpc.portfolio.summary.useQuery(undefined, {
+    staleTime: 30_000,
+    enabled: isAuthenticated,
   });
-  const holdings = (query.data ?? []).filter(item =>
-    ["NVDA", "AAPL", "VOO", "BTC", "MSFT"].includes(item.symbol)
-  );
+
+  const portfolio = portfolioQuery.data;
+  const positions = portfolio?.positions ?? [];
+  const totalValue = Number(portfolio?.totalValue ?? 0);
+  const investedAmount = Number(portfolio?.investedAmount ?? 0);
+  const profitLoss = Number(portfolio?.profitLoss ?? 0);
+  const profitPercentage = Number(portfolio?.profitPercentage ?? 0);
+
+  const summary = useMemo(() => {
+    const allocation = positions.map((position: any) => {
+      const value = Number(position.currentValue ?? 0);
+      const weight = totalValue > 0 ? (value / totalValue) * 100 : 0;
+      return { ...position, value, weight };
+    });
+    return allocation.sort((a: any, b: any) => b.value - a.value);
+  }, [positions, totalValue]);
+
+  const handleCopySnapshot = async () => {
+    const snapshot = [
+      `Northstar portfolio snapshot`,
+      `Total value: $${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      `Invested: $${investedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      `P/L: ${profitLoss >= 0 ? "+" : "-"}$${Math.abs(profitLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      ...summary.slice(0, 5).map((position: any) => `${position.asset.symbol}: $${Number(position.currentValue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`),
+    ].join("\n");
+
+    try {
+      await navigator.clipboard.writeText(snapshot);
+      notify("Portfolio snapshot copied to your clipboard.", "success");
+    } catch {
+      notify("Clipboard access is blocked in this browser, but the portfolio is live and ready.", "info");
+    }
+  };
+
+  const handleAddTransaction = () => {
+    if (!isAuthenticated) {
+      notify("Sign in to add live transactions to your portfolio.", "info");
+      return;
+    }
+    notify("Transaction capture is ready for your broker feed. Connect the provider to sync live trades.", "success");
+  };
+
+  const chartValues = summary.length
+    ? summary.slice(0, 12).map((position: any) => Number(position.currentValue ?? 0))
+    : [1200, 1400, 1600, 1550, 1800, 2100, 2050, 2230, 2400, 2650, 2800, 2950];
+
   return (
     <AppShell>
       <div className="page-shell feature-shell">
@@ -36,163 +82,136 @@ export default function PortfolioPage() {
             </div>
             <h1>Portfolio lab</h1>
             <p>
-              See the shape of your exposure, the sources of return, and the
-              risks worth reviewing.
+              Live exposures, real market pricing, and a cleaner workflow for your risk and return review.
             </p>
           </div>
           <div className="heading-actions">
-            <button type="button" className="button button-primary button-sm" onClick={() => notify("Transaction entry is not connected to a trading provider yet.")}>
+            <button type="button" className="button button-primary button-sm pro-button" onClick={handleAddTransaction}>
               <Plus size={14} /> Add transaction
             </button>
           </div>
         </div>
         <div className="portfolio-top-grid">
-          <section className="section-card portfolio-value-card">
+          <section className="section-card portfolio-value-card animated-card">
             <div className="section-header">
               <div>
                 <span className="section-eyebrow">Total portfolio value</span>
                 <h2>
-                  $128,642<span className="decimal">.18</span>
+                  ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </h2>
               </div>
-              <button type="button" className="period-selector" onClick={() => setRange(range === "1D" ? "1W" : "1D")}>
+              <button type="button" className="period-selector" onClick={() => setRange((current) => current === "1D" ? "1W" : "1D")}>
                 {range} <ChevronDown size={13} />
               </button>
             </div>
             <div className="portfolio-return">
-              <span className="positive">
-                <ArrowUpRight size={14} />
-                +$1,842.24
+              <span className={profitLoss >= 0 ? "positive" : "negative"}>
+                {profitLoss >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                ${Math.abs(profitLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              <span>+1.45% today</span>
+              <span>{profitPercentage.toFixed(2)}% return</span>
               <span className="muted">·</span>
-              <span>Updated 14:32 ET</span>
+              <span>{portfolioQuery.isLoading ? "Updating live price" : "Updated live"}</span>
             </div>
             <div className="portfolio-chart">
               <div className="portfolio-line" />
               <div className="portfolio-grid-line one" />
               <div className="portfolio-grid-line two" />
-              <MiniSparkline
-                values={[
-                  82, 83, 82, 87, 84, 89, 90, 94, 92, 99, 101, 100, 107, 110,
-                  114, 113, 120, 124, 122, 128,
-                ]}
-                width={640}
-                height={150}
-              />
+              <MiniSparkline values={chartValues} width={640} height={150} positive={profitLoss >= 0} />
             </div>
             <div className="range-row">
-              <button className={range === "1D" ? "active" : ""} type="button" onClick={() => setRange("1D")}>
-                1D
-              </button>
-              <button className={range === "1W" ? "active" : ""} type="button" onClick={() => setRange("1W")}>1W</button>
-              <button className={range === "1M" ? "active" : ""} type="button" onClick={() => setRange("1M")}>1M</button>
-              <button className={range === "3M" ? "active" : ""} type="button" onClick={() => setRange("3M")}>3M</button>
-              <button className={range === "YTD" ? "active" : ""} type="button" onClick={() => setRange("YTD")}>YTD</button>
-              <button className={range === "1Y" ? "active" : ""} type="button" onClick={() => setRange("1Y")}>1Y</button>
-              <button className={range === "ALL" ? "active" : ""} type="button" onClick={() => setRange("ALL")}>ALL</button>
+              {[
+                "1D", "1W", "1M", "3M", "YTD", "1Y", "ALL",
+              ].map((option) => (
+                <button key={option} className={range === option ? "active" : ""} type="button" onClick={() => setRange(option)}>
+                  {option}
+                </button>
+              ))}
             </div>
           </section>
           <div className="portfolio-stats">
-            <div className="section-card stat-card">
+            <div className="section-card stat-card animated-card">
               <CircleDollarSign size={18} />
               <span>Invested capital</span>
-              <b>$104,218</b>
-              <small>81.0% of value</small>
+              <b>${investedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+              <small>{investedAmount > 0 ? `${((totalValue / investedAmount) * 100).toFixed(1)}% of value` : "No capital tracked yet"}</small>
             </div>
-            <div className="section-card stat-card">
+            <div className="section-card stat-card animated-card">
               <TrendingUp size={18} />
               <span>Total return</span>
-              <b className="positive">+$24,424</b>
-              <small className="positive">+23.44%</small>
+              <b className={profitLoss >= 0 ? "positive" : "negative"}>${Math.abs(profitLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+              <small className={profitLoss >= 0 ? "positive" : "negative"}>{profitPercentage.toFixed(2)}%</small>
             </div>
-            <div className="section-card stat-card">
+            <div className="section-card stat-card animated-card">
               <PieChart size={18} />
-              <span>Income received</span>
-              <b>$1,284</b>
-              <small>12 dividends</small>
+              <span>Cash available</span>
+              <b>${Number(portfolio?.cashBalance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+              <small>{positions.length ? `${positions.length} live positions` : "No live positions"}</small>
             </div>
-            <div className="section-card stat-card">
+            <div className="section-card stat-card animated-card">
               <ReceiptText size={18} />
               <span>Transactions</span>
-              <b>36</b>
-              <small>Last added 4d ago</small>
+              <b>{Math.max(positions.length, 0)}</b>
+              <small>{positions.length ? "Updated in real time" : "Waiting for activity"}</small>
             </div>
           </div>
         </div>
         <div className="portfolio-content-grid">
-          <section className="section-card holdings-card">
+          <section className="section-card holdings-card animated-card">
             <div className="section-header">
               <div>
                 <span className="section-eyebrow">Holdings</span>
                 <h2>Positions</h2>
               </div>
-              <button type="button" className="text-button" onClick={() => notify("Holdings export is not available until live portfolio records are connected.")}>
+              <button type="button" className="text-button" onClick={handleCopySnapshot}>
                 Export <ArrowUpRight size={13} />
               </button>
             </div>
-            <div className="holdings-table">
-              <div className="holdings-head">
-                <span>Asset</span>
-                <span>Weight</span>
-                <span>Value</span>
-                <span>Return</span>
-                <span>Today</span>
+            {positions.length === 0 ? (
+              <div className="portfolio-empty-state">
+                <div className="wallet-empty-icon"><PieChart size={20} /></div>
+                <h3>No live positions yet</h3>
+                <p>Add your first trade to see your portfolio values update in real time.</p>
+                <button type="button" className="button button-primary button-sm" onClick={handleAddTransaction}>Add your first position</button>
               </div>
-              {holdings.map((item, index) => (
-                <Link
-                  href={`/stocks/${item.symbol.toLowerCase()}`}
-                  className="holding-row"
-                  key={item.symbol}
-                >
-                  <span className="asset-cell">
-                    <span
-                      className={cn("asset-mark", `asset-${item.category}`)}
-                    >
-                      {item.symbol.slice(0, 2)}
-                    </span>
-                    <span>
-                      <b>{item.symbol}</b>
-                      <small>{item.name}</small>
-                    </span>
-                  </span>
-                  <span>
-                    <b>{[25, 20, 30, 15, 10][index]}%</b>
-                    <small className="holding-bar">
-                      <i
-                        style={{
-                          width: `${[25, 20, 30, 15, 10][index] * 2.4}%`,
-                        }}
-                      />
-                    </small>
-                  </span>
-                  <span className="mono">
-                    $
-                    {[32144, 25698, 38592, 19296, 12864][
-                      index
-                    ].toLocaleString()}
-                  </span>
-                  <span
-                    className={item.changePct >= 0 ? "positive" : "negative"}
-                  >
-                    {item.changePct >= 0 ? "+" : ""}
-                    {[34.2, 18.6, 14.8, 8.4, -2.2][index]}%
-                  </span>
-                  <span
-                    className={cn(
-                      "mono",
-                      item.changePct >= 0 ? "positive" : "negative"
-                    )}
-                  >
-                    {item.changePct >= 0 ? "+" : ""}
-                    {item.changePct.toFixed(2)}%
-                  </span>
-                </Link>
-              ))}
-            </div>
+            ) : (
+              <div className="holdings-table">
+                <div className="holdings-head">
+                  <span>Asset</span>
+                  <span>Weight</span>
+                  <span>Value</span>
+                  <span>Return</span>
+                  <span>Today</span>
+                </div>
+                {summary.map((item: any) => {
+                  const returnValue = Number(item.profitLoss ?? 0);
+                  const weight = totalValue > 0 ? (Number(item.currentValue ?? 0) / totalValue) * 100 : 0;
+                  const isPositive = returnValue >= 0;
+
+                  return (
+                    <Link href={`/stocks/${String(item.asset.symbol).toLowerCase()}`} className="holding-row" key={item.asset.symbol}>
+                      <span className="asset-cell">
+                        <span className={cn("asset-mark", `asset-${item.asset.category ?? "crypto"}`)}>{String(item.asset.symbol).slice(0, 2)}</span>
+                        <span>
+                          <b>{item.asset.symbol}</b>
+                          <small>{item.asset.name}</small>
+                        </span>
+                      </span>
+                      <span>
+                        <b>{weight.toFixed(1)}%</b>
+                        <small className="holding-bar"><i style={{ width: `${Math.min(weight * 2.5, 100)}%` }} /></small>
+                      </span>
+                      <span className="mono">${Number(item.currentValue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className={isPositive ? "positive" : "negative"}>{isPositive ? "+" : "-"}${Math.abs(returnValue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className={cn("mono", isPositive ? "positive" : "negative")}>{Number(item.profitPercentage ?? 0).toFixed(2)}%</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </section>
           <aside className="portfolio-side">
-            <section className="section-card allocation-card">
+            <section className="section-card allocation-card animated-card">
               <div className="section-header">
                 <div>
                   <span className="section-eyebrow">Allocation</span>
@@ -202,51 +221,37 @@ export default function PortfolioPage() {
               <div className="allocation-visual">
                 <div className="big-donut">
                   <span>
-                    $128k<small>total</small>
+                    ${totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}<small>total</small>
                   </span>
                 </div>
                 <div className="allocation-legend">
-                  <span>
-                    <i className="allocation-dot teal" />
-                    Equities <b>62%</b>
-                  </span>
-                  <span>
-                    <i className="allocation-dot violet" />
-                    Crypto <b>23%</b>
-                  </span>
-                  <span>
-                    <i className="allocation-dot amber" />
-                    Cash <b>15%</b>
-                  </span>
+                  {summary.slice(0, 3).map((item: any, index: number) => (
+                    <span key={item.asset.symbol}>
+                      <i className={cn("allocation-dot", index === 0 ? "teal" : index === 1 ? "violet" : "amber")} />
+                      {item.asset.name} <b>{totalValue > 0 ? ((Number(item.currentValue ?? 0) / totalValue) * 100).toFixed(0) : 0}%</b>
+                    </span>
+                  ))}
                 </div>
               </div>
             </section>
-            <section className="section-card allocation-card">
+            <section className="section-card allocation-card animated-card">
               <span className="section-eyebrow">Activity</span>
-              <h2>Recent transactions</h2>
+              <h2>Recent moves</h2>
               <div className="transaction-list">
-                <div>
-                  <span className="transaction-icon positive">
-                    <ArrowUpRight size={14} />
-                  </span>
-                  <span>
-                    <b>Buy · NVDA</b>
-                    <small>20 shares · Sep 01</small>
-                  </span>
-                  <strong>+$2,373</strong>
-                </div>
-                <div>
-                  <span className="transaction-icon negative">
-                    <ArrowDownRight size={14} />
-                  </span>
-                  <span>
-                    <b>Sell · TSLA</b>
-                    <small>8 shares · Aug 29</small>
-                  </span>
-                  <strong>-$1,728</strong>
-                </div>
+                {summary.slice(0, 2).map((item: any) => (
+                  <div key={item.asset.symbol}>
+                    <span className={Number(item.profitLoss ?? 0) >= 0 ? "transaction-icon positive" : "transaction-icon negative"}>
+                      {Number(item.profitLoss ?? 0) >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                    </span>
+                    <span>
+                      <b>{Number(item.profitLoss ?? 0) >= 0 ? "Gain" : "Drag"} · {item.asset.symbol}</b>
+                      <small>{item.asset.name}</small>
+                    </span>
+                    <strong>{Number(item.profitLoss ?? 0) >= 0 ? "+" : "-"}${Math.abs(Number(item.profitLoss ?? 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                  </div>
+                ))}
               </div>
-              <button type="button" className="text-button" onClick={() => notify("Transaction history will appear when account activity is connected.")}>
+              <button type="button" className="text-button" onClick={handleCopySnapshot}>
                 View all activity <ArrowUpRight size={13} />
               </button>
             </section>

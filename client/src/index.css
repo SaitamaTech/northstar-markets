@@ -579,10 +579,18 @@ a { color: inherit; text-decoration: none; }
 .portfolio-line { position: absolute; inset: 34px 0 30px; background: linear-gradient(135deg, transparent 0 36%, rgba(94,234,212,.11) 37%, transparent 68%); opacity: .7; }
 .portfolio-chart > div:last-child { position: relative; width: 100% !important; }
 .range-row { display: flex; gap: 7px; padding-top: 6px; border-top: 1px solid var(--border-subtle); }
-.range-row button { padding: 4px 7px; color: #6e839a; border: 0; border-radius: 4px; background: transparent; font-size: 9px; }
-.range-row button.active, .range-row button:hover { color: #bdebe1; background: rgba(94,234,212,.1); }
+.range-row button { padding: 4px 7px; color: #6e839a; border: 0; border-radius: 4px; background: transparent; font-size: 9px; transition: all .18s ease; }
+.range-row button.active, .range-row button:hover { color: #bdebe1; background: rgba(94,234,212,.1); transform: translateY(-1px); }
 .portfolio-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-.stat-card { padding: 15px; display: flex; flex-direction: column; gap: 5px; }
+.stat-card { padding: 15px; display: flex; flex-direction: column; gap: 5px; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.animated-card { transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+.animated-card:hover { transform: translateY(-2px); box-shadow: 0 16px 30px rgba(16, 30, 44, .18); border-color: rgba(94, 234, 212, .25); }
+.pro-button { position: relative; overflow: hidden; box-shadow: 0 10px 24px rgba(94, 234, 212, .2); transition: transform .18s ease, box-shadow .18s ease; }
+.pro-button:hover { transform: translateY(-1px); box-shadow: 0 14px 28px rgba(94, 234, 212, .25); }
+.pro-button:active { transform: translateY(0); }
+.portfolio-empty-state { display: flex; flex-direction: column; align-items: center; gap: 10px; min-height: 220px; padding: 28px 18px; text-align: center; color: var(--muted); }
+.portfolio-empty-state h3 { margin: 0; color: var(--foreground); font-family: "Space Grotesk", sans-serif; }
+.portfolio-empty-state p { margin: 0; font-size: 12px; line-height: 1.6; }
 .stat-card > svg { color: #89aeca; margin-bottom: 6px; }
 .stat-card span { color: #71869d; font-size: 9px; }
 .stat-card b { color: #dfe9f0; font-family: "Space Grotesk", sans-serif; font-size: 15px; }

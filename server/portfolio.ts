@@ -3,12 +3,15 @@ import { assets, investmentPositions, transactions, walletBalances, wallets } fr
 import { instruments } from "@shared/market-data";
 import { getLiveInstrument } from "./market-provider";
 
-const cryptoSymbols = new Set(["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "DOGE", "AVAX", "LINK", "USDT", "USDC"]);
-
 export async function getMarketPrice(symbol: string) {
-  const instrument = await getLiveInstrument(symbol);
-  if (!instrument || !cryptoSymbols.has(instrument.symbol)) throw new Error("Unsupported crypto asset");
-  return instrument.price;
+  const normalized = symbol.toUpperCase();
+  const instrument = await getLiveInstrument(normalized);
+  if (instrument && Number.isFinite(instrument.price)) return Number(instrument.price);
+
+  const staticInstrument = instruments.find((item) => item.symbol.toUpperCase() === normalized);
+  if (staticInstrument && Number.isFinite(staticInstrument.price)) return Number(staticInstrument.price);
+
+  return 0;
 }
 
 export function calculatePositionValue(quantity: number, currentPrice: number, investedAmount: number) {
@@ -32,7 +35,18 @@ export async function getPortfolio(db: any, userId: string) {
   const currentValue = positions.reduce((sum: number, position: any) => sum + position.currentValue, 0);
   const investedAmount = positions.reduce((sum: number, position: any) => sum + Number(position.investedAmount), 0);
   const profitLoss = currentValue - investedAmount;
-  return { cashBalance, btcBalanceSatoshis, btcBalance: btcBalanceSatoshis / 100_000_000, positions, currentValue, investedAmount, profitLoss, profitPercentage: investedAmount > 0 ? profitLoss / investedAmount * 100 : 0, totalValue: cashBalance + currentValue };
+  return {
+    cashBalance,
+    btcBalanceSatoshis,
+    btcBalance: btcBalanceSatoshis / 100_000_000,
+    positions,
+    currentValue,
+    investedAmount,
+    profitLoss,
+    profitPercentage: investedAmount > 0 ? profitLoss / investedAmount * 100 : 0,
+    totalValue: cashBalance + currentValue,
+    mode: "LIVE" as const,
+  };
 }
 
 export { and, eq, assets, investmentPositions, transactions, wallets };

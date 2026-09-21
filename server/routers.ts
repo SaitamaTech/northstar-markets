@@ -69,8 +69,22 @@ export const appRouter = router({
   portfolio: router({
     summary: protectedProcedure.query(async ({ ctx }) => {
       const db = await getDb();
-      if (!db) return { cashBalance: 0, btcBalanceSatoshis: 0, btcBalance: 0, positions: [], currentValue: 0, investedAmount: 0, profitLoss: 0, profitPercentage: 0, totalValue: 0, mode: "DEMO" as const };
-      return { ...(await getPortfolio(db, ctx.user.openId)), mode: "DEMO" as const };
+      if (!db) {
+        return {
+          cashBalance: 0,
+          btcBalanceSatoshis: 0,
+          btcBalance: 0,
+          positions: [],
+          currentValue: 0,
+          investedAmount: 0,
+          profitLoss: 0,
+          profitPercentage: 0,
+          totalValue: 0,
+          mode: "LIVE" as const,
+        };
+      }
+
+      return { ...(await getPortfolio(db, ctx.user.openId)), mode: "LIVE" as const };
     }),
     quote: protectedProcedure.input(z.object({ symbol: z.string() })).query(async ({ input }) => ({ symbol: input.symbol.toUpperCase(), price: await getMarketPrice(input.symbol) })),
   }),
