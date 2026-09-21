@@ -8,9 +8,11 @@ import BtcDepositsPage from "@/pages/BtcDepositsPage";
 import AssetPage from "@/pages/AssetPage";
 import CalendarPage from "@/pages/CalendarPage";
 import ChartsPage from "@/pages/ChartsPage";
+import CookiesPage from "@/pages/CookiesPage";
 import Home from "@/pages/Home";
 import MarketPage from "@/pages/MarketPage";
 import PortfolioPage from "@/pages/PortfolioPage";
+import PrivacyPolicyPage from "@/pages/PrivacyPolicyPage";
 import ResearchPage from "@/pages/ResearchPage";
 import ScreenerPage from "@/pages/ScreenerPage";
 import SettingsPage from "@/pages/SettingsPage";
@@ -36,6 +38,8 @@ function Router() {
     <Route path="/portfolio" component={PortfolioPage} />
     <Route path="/calendar" component={CalendarPage} />
     <Route path="/settings" component={SettingsPage} />
+    <Route path="/privacy-policy" component={PrivacyPolicyPage} />
+    <Route path="/cookies" component={CookiesPage} />
     <Route path="/deposit/eth" component={BtcDepositPage} />
     <Route path="/deposit/btc" component={BtcDepositPage} />
     <Route path="/deposits" component={BtcDepositsPage} />

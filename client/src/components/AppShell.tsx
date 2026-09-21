@@ -106,6 +106,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {mobileNav.map((item) => <Link key={item.href} href={item.href} className={cn("mobile-nav-item", location === item.href && "active")}><span>{item.icon}</span>{item.label}</Link>)}
         <button type="button" className="mobile-nav-item" onClick={() => setSearchOpen(true)}><span>⌕</span>Search</button>
       </nav>
+      <footer className="legal-footer">
+        <Link href="/privacy-policy">Privacy Policy</Link>
+        <Link href="/cookies">Cookies</Link>
+      </footer>
     </div>
     <SupabaseAuthDialog open={authOpen} onOpenChange={setAuthOpen} />
     </>

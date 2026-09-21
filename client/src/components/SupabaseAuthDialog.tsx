@@ -30,7 +30,7 @@ export function SupabaseAuthDialog({ open, onOpenChange }: SupabaseAuthDialogPro
   const signInWithGoogle = async () => {
     resetFeedback();
     setBusy(true);
-    const redirectTo = getAuthRedirectTarget(window.location);
+    const redirectTo = getAuthRedirectTarget(window.location, "/dashboard");
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo },
@@ -47,7 +47,7 @@ export function SupabaseAuthDialog({ open, onOpenChange }: SupabaseAuthDialogPro
     setBusy(true);
     const result = mode === "signIn"
       ? await supabase.auth.signInWithPassword({ email, password })
-      : await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin, data: { full_name: fullName, display_name: fullName } } });
+      : await supabase.auth.signUp({ email, password, options: { emailRedirectTo: getAuthRedirectTarget(window.location, "/dashboard"), data: { full_name: fullName, display_name: fullName } } });
 
     if (result.error) {
       setError(result.error.message);
