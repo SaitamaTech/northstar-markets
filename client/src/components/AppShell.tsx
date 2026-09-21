@@ -127,7 +127,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main>{children}</main>
       <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
         {mobileNav.map((item) => <Link key={item.href} href={item.href} className={cn("mobile-nav-item", location === item.href && "active")} onClick={() => setMoreOpen(false)}><span>{item.icon}</span>{item.label}</Link>)}
-        <button type="button" className="mobile-nav-item" onClick={() => setSearchOpen(true)}><span>⌕</span>Search</button>
       </nav>
       <footer className="legal-footer">
         <Link href="/privacy-policy">Privacy Policy</Link>
