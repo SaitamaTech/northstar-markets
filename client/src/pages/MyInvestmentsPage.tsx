@@ -89,8 +89,9 @@ export default function MyInvestmentsPage() {
                     </div>
                   </div>
 
-                  <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
+                  <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end", gap: 10 }}>
                     <Link href={`/investments/${investment.id}`} className="button button-secondary button-sm">View details <ArrowRight size={14} /></Link>
+                    {investment.status === "ACTIVE" && <Link href="/withdraw" className="button button-primary button-sm">Withdraw</Link>}
                   </div>
                 </section>
               );

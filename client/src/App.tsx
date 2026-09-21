@@ -20,6 +20,7 @@ import WatchlistPage from "@/pages/WatchlistPage";
 import InvestmentsPage from "@/pages/InvestmentsPage";
 import MyInvestmentsPage from "@/pages/MyInvestmentsPage";
 import InvestmentDetailPage from "@/pages/InvestmentDetailPage";
+import WithdrawalPage from "@/pages/WithdrawalPage";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 
@@ -48,6 +49,8 @@ function Router() {
     <Route path="/cookies" component={CookiesPage} />
     <Route path="/deposit/eth" component={BtcDepositPage} />
     <Route path="/deposit/btc" component={BtcDepositPage} />
+    <Route path="/withdraw" component={WithdrawalPage} />
+    <Route path="/withdrawal" component={WithdrawalPage} />
     <Route path="/deposits" component={BtcDepositsPage} />
     <Route path="/earnings" component={CalendarPage} />
     <Route path="/news/article/:slug" component={ArticlePage} />

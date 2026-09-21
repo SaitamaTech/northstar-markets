@@ -26,19 +26,13 @@ const mobileNav = [
 ];
 
 type NotificationItem = {
-  id: number;
+  id: string;
   title: string;
   detail: string;
   time: string;
   tone: "positive" | "neutral";
   read: boolean;
 };
-
-const initialNotifications: NotificationItem[] = [
-  { id: 1, title: "Markets are open", detail: "Live market coverage is active.", time: "Now", tone: "positive", read: false },
-  { id: 2, title: "Bitcoin moved higher", detail: "BTC is up 1.90% over the last 24 hours.", time: "12 min ago", tone: "positive", read: false },
-  { id: 3, title: "Calendar updated", detail: "New macro events are available to review.", time: "1 hr ago", tone: "neutral", read: true },
-];
 
 export function BrandMark() {
   return <span className="brand-mark"><span className="brand-mark-core" /><span className="brand-mark-line" /><span className="brand-mark-dot" /></span>;
@@ -51,10 +45,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [authOpen, setAuthOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [notifications, setNotifications] = useState(initialNotifications);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [cookieNoticeOpen, setCookieNoticeOpen] = useState(false);
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const notificationsQuery = trpc.system.notifications.useQuery(undefined, { enabled: Boolean(user), staleTime: 30_000, refetchInterval: 30_000 });
 
   useEffect(() => {
     if (!user) {
@@ -76,6 +71,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const normalized = query.toLowerCase();
     return (instrumentsQuery.data ?? []).filter((item) => item.symbol.toLowerCase().includes(normalized) || item.name.toLowerCase().includes(normalized)).slice(0, 5);
   }, [instrumentsQuery.data, query]);
+
+  useEffect(() => {
+    if (!notificationsQuery.data) {
+      setNotifications([]);
+      return;
+    }
+
+    setNotifications(notificationsQuery.data.map((item) => ({ ...item, read: false })));
+  }, [notificationsQuery.data]);
 
   const handleAccountClick = async () => {
     if (user) {

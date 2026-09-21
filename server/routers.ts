@@ -255,6 +255,59 @@ export const appRouter = router({
         summary,
       };
     }),
+    withdraw: protectedProcedure.input(z.object({
+      investmentId: z.number(),
+      amount: z.union([z.string(), z.number()]).optional(),
+    })).mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: "Database is not configured" });
+
+      const [investment] = await db.select().from(investments)
+        .where(and(eq(investments.id, input.investmentId), eq(investments.userId, ctx.user.openId)))
+        .limit(1);
+
+      if (!investment) throw new TRPCError({ code: "NOT_FOUND", message: "Investment not found." });
+      if (investment.status !== "ACTIVE") throw new TRPCError({ code: "BAD_REQUEST", message: "Only active investments can be withdrawn." });
+
+      const totalValue = Number(investment.totalValue ?? 0);
+      const requestedAmount = Number(input.amount ?? totalValue);
+      if (requestedAmount <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "Withdrawal amount must be greater than zero." });
+      if (requestedAmount !== totalValue) throw new TRPCError({ code: "BAD_REQUEST", message: "This withdrawal flow is configured for full-value exits only." });
+
+      await db.transaction(async (tx: any) => {
+        const wallet = (await tx.select().from(wallets).where(eq(wallets.userId, ctx.user.openId)).limit(1))[0];
+        if (!wallet) throw new TRPCError({ code: "BAD_REQUEST", message: "Wallet not found for this account." });
+
+        const updatedCash = addDecimal(wallet.cashBalance, String(requestedAmount));
+        await tx.update(wallets).set({ cashBalance: updatedCash, updatedAt: new Date() }).where(eq(wallets.userId, ctx.user.openId));
+        await tx.update(investments).set({
+          totalValue: "0",
+          accruedInterest: "0",
+          principalAmount: "0",
+          status: "COMPLETED",
+          updatedAt: new Date(),
+          maturityDate: new Date(),
+        }).where(eq(investments.id, investment.id));
+
+        await tx.insert(investmentAccruals).values({
+          investmentId: investment.id,
+          userId: ctx.user.openId,
+          asset: investment.asset,
+          transactionType: "INVESTMENT_WITHDRAWAL",
+          amount: String(requestedAmount),
+          balanceAfter: updatedCash,
+          accrualDate: new Date(),
+          description: `Full withdrawal of ${investment.asset} investment`,
+        });
+      });
+
+      const summary = await getInvestmentSummaryForUser(db, ctx.user.openId);
+      return {
+        success: true,
+        message: "Investment withdrawn successfully and returned to your available balance.",
+        summary,
+      };
+    }),
     processAccruals: adminProcedure.mutation(async () => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: "Database is not configured" });
