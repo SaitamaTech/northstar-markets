@@ -859,6 +859,8 @@ main { position: relative; z-index: 1; }
   .search-results { top: 42px; right: -90px; left: auto; width: 270px; }
   .top-icon.theme-toggle, .login-button { display: none; }
   .topbar-actions { gap: 4px; }
+  .notification-center { position: static; }
+  .notification-panel { position: fixed; left: 12px; right: 12px; top: auto; bottom: calc(76px + env(safe-area-inset-bottom)); width: auto; max-width: none; }
   .market-ticker { height: 29px; }
   .ticker-track { padding: 0 15px; gap: 18px; }
   .page-shell { width: calc(100% - 30px); padding: 24px 0 calc(92px + env(safe-area-inset-bottom)); }

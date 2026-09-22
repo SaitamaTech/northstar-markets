@@ -2,6 +2,7 @@ import { ArrowRight, BadgeDollarSign, CalendarDays, CircleDollarSign, ShieldChec
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { AppShell } from "@/components/AppShell";
+import { SupabaseAuthDialog } from "@/components/SupabaseAuthDialog";
 import { Button } from "@/components/ui/button";
 import { notify } from "@/lib/notify";
 import { trpc } from "@/lib/trpc";
@@ -19,6 +20,7 @@ export default function InvestmentsPage() {
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(plans[0]?.id ?? null);
   const [amount, setAmount] = useState("1000");
   const [asset, setAsset] = useState("USDT");
+  const [authOpen, setAuthOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const filteredPlans = useMemo(() => {
@@ -223,7 +225,13 @@ export default function InvestmentsPage() {
                 <div style={{ display: "flex", justifyContent: "space-between", color: "var(--muted)" }}><span>Annualized yield</span><strong style={{ color: "var(--foreground)" }}>{annualizedYield.toFixed(2)}%</strong></div>
               </div>
 
-              <Button type="button" onClick={() => setConfirmOpen(true)} className="full-button">
+              <Button type="button" onClick={() => {
+                if (!user) {
+                  setAuthOpen(true);
+                  return;
+                }
+                setConfirmOpen(true);
+              }} className="full-button">
                 Invest now <ArrowRight size={15} />
               </Button>
             </div>
@@ -256,6 +264,7 @@ export default function InvestmentsPage() {
           </div>
         )}
       </div>
+      <SupabaseAuthDialog open={authOpen} onOpenChange={setAuthOpen} />
     </AppShell>
   );
 }
