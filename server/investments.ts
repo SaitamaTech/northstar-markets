@@ -3,9 +3,9 @@ import { and, eq, gte, sql } from "drizzle-orm";
 import { investmentAccruals, investmentPlans, investments, wallets } from "../drizzle/schema";
 
 export const defaultInvestmentPlans = [
-  { name: "Weekly Flex", asset: "USDT", minimumInvestment: "100", durationDays: 7, dailyRate: "0.0011", description: "Short-term yield for capital you want to cycle quickly while keeping exposure flexible.", riskNote: "Returns are estimates and depend on the product terms, market conditions, and platform risk disclosures." },
-  { name: "Monthly Growth", asset: "USDT", minimumInvestment: "500", durationDays: 30, dailyRate: "0.0017", description: "A stable monthly term built for users who want regular compounding and a clear maturity date.", riskNote: "All performance is indicative and may vary based on the investment conditions and risk factors in effect at the time of allocation." },
-  { name: "Yearly Vault", asset: "USDT", minimumInvestment: "2500", durationDays: 365, dailyRate: "0.0028", description: "A premium long-term allocation designed for larger balances and stronger annual compounding.", riskNote: "Longer-term performance is not guaranteed. Please review the platform terms before committing capital." },
+  { name: "Weekly Flex", asset: "ETH", minimumInvestment: "100", durationDays: 7, dailyRate: "0.0011", description: "Short-term yield for capital you want to cycle quickly while keeping exposure flexible.", riskNote: "Returns are estimates and depend on the product terms, market conditions, and platform risk disclosures." },
+  { name: "Monthly Growth", asset: "ETH", minimumInvestment: "500", durationDays: 30, dailyRate: "0.0017", description: "A stable monthly term built for users who want regular compounding and a clear maturity date.", riskNote: "All performance is indicative and may vary based on the investment conditions and risk factors in effect at the time of allocation." },
+  { name: "Yearly Vault", asset: "ETH", minimumInvestment: "2500", durationDays: 365, dailyRate: "0.0028", description: "A premium long-term allocation designed for larger balances and stronger annual compounding.", riskNote: "Longer-term performance is not guaranteed. Please review the platform terms before committing capital." },
 ] as const;
 
 export function decimalNumber(value: string | number | null | undefined, fallback = 0) {

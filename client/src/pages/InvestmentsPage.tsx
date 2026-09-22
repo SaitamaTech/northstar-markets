@@ -20,7 +20,7 @@ export default function InvestmentsPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<(typeof investmentPeriods)[number]>("Weekly");
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(plans[0]?.id ?? null);
   const [amount, setAmount] = useState("1000");
-  const [asset, setAsset] = useState("USDT");
+  const [asset] = useState("ETH");
   const [authOpen, setAuthOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -42,7 +42,8 @@ export default function InvestmentsPage() {
   const [projectionPeriod, setProjectionPeriod] = useState<"weeks" | "months" | "years">("months");
   const [projectionAmount, setProjectionAmount] = useState<number>(1);
   const projectionDays = projectionPeriod === "weeks" ? projectionAmount * 7 : projectionPeriod === "months" ? projectionAmount * 30 : projectionAmount * 365;
-  const projection = calculateInvestmentProjection({ principal, dailyRate: safeDailyRate, durationDays: projectionDays });
+  const fallbackProjectionRate = 0.0015;
+  const projection = calculateInvestmentProjection({ principal, dailyRate: safeDailyRate, durationDays: projectionDays, fallbackRate: fallbackProjectionRate });
   const dailyReturn = projection.dailyReturn;
   const durationReturn = selectedPlan ? dailyReturn * Number(selectedPlan.durationDays) : 0;
   const estimatedEndValue = selectedPlan ? principal + durationReturn : 0;
@@ -234,9 +235,9 @@ export default function InvestmentsPage() {
 
               <label style={{ display: "grid", gap: "8px" }}>
                 <span style={{ color: "var(--muted)", fontSize: "12px" }}>Asset</span>
-                <select value={asset} onChange={(event) => setAsset(event.target.value)} style={{ background: "rgba(15,23,42,.8)", border: "1px solid rgba(148,163,184,.2)", borderRadius: 12, color: "var(--foreground)", padding: "12px 14px" }}>
-                  {['USDT', 'BTC', 'ETH', 'SOL'].map((option) => <option key={option} value={option}>{option}</option>)}
-                </select>
+                <div style={{ background: "rgba(15,23,42,.8)", border: "1px solid rgba(148,163,184,.2)", borderRadius: 12, color: "var(--foreground)", padding: "12px 14px" }}>
+                  {asset}
+                </div>
               </label>
 
               <div className="wallet-meta-row">
@@ -294,7 +295,7 @@ export default function InvestmentsPage() {
               </div>
 
               {!hasBalance ? (
-                <div className="btc-provider-error">You need funds in your account before you can invest. Add balance to continue.</div>
+                <div className="btc-provider-error">Estimate preview is active. Add funds to unlock the actual investment action.</div>
               ) : principal > availableBalance ? (
                 <div className="btc-provider-error">Your requested investment exceeds your available account balance.</div>
               ) : null}

@@ -25,4 +25,11 @@ describe("calculateInvestmentProjection", () => {
       endValue: 1547.5,
     });
   });
+
+  it("uses a preview fallback rate when no real investment yield is available", () => {
+    const projection = calculateInvestmentProjection({ principal: 1000, dailyRate: 0, fallbackRate: 0.0015, durationDays: 30 });
+
+    expect(projection.dailyRate).toBe(0.0015);
+    expect(projection.endValue).toBe(1045);
+  });
 });
