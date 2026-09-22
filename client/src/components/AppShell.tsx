@@ -21,8 +21,6 @@ const mobileNav = [
   { label: "Markets", href: "/markets", icon: "◌" },
   { label: "Watchlist", href: "/watchlist", icon: "☆" },
   { label: "Portfolio", href: "/portfolio", icon: "◒" },
-  { label: "Investments", href: "/investments", icon: "◈" },
-  { label: "Calendar", href: "/calendar", icon: "◫" },
 ];
 
 export const moreMenuItems = [
