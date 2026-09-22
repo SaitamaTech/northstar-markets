@@ -7,6 +7,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { notify } from "@/lib/notify";
 import { trpc } from "@/lib/trpc";
+import { resolveReceiveWalletAddress } from "@/lib/walletAddress";
 import { connectTrustWallet, restoreWalletConnection, type WalletConnection } from "@/lib/walletConnect";
 
 export default function BtcDepositPage() {
@@ -22,7 +23,11 @@ export default function BtcDepositPage() {
   const walletDisconnectMutation = trpc.wallet.disconnect.useMutation();
   const balanceQuery = trpc.btc.balance.useQuery(undefined, { enabled: Boolean(user), refetchInterval: 15_000 });
   const priceQuery = trpc.market.instrument.useQuery({ symbol: "BTC" }, { staleTime: 30_000, refetchInterval: 30_000 });
-  const depositAddress = connectedWallet?.address ?? walletStatusQuery.data?.walletAddress ?? null;
+  const configuredOwnerWalletAddress = (import.meta.env.VITE_OWNER_WALLET_ADDRESS ?? import.meta.env.NEXT_PUBLIC_OWNER_WALLET_ADDRESS ?? "").trim();
+  const depositAddress = resolveReceiveWalletAddress({
+    connectedWalletAddress: connectedWallet?.address ?? walletStatusQuery.data?.walletAddress ?? null,
+    configuredWalletAddress: configuredOwnerWalletAddress,
+  });
   const network = walletStatusQuery.data?.network === "testnet" ? "testnet" : "mainnet";
   const requiresLogin = !authLoading && !user;
   const btc = balanceQuery.data?.btc ?? 0;
