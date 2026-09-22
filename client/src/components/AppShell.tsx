@@ -1,4 +1,4 @@
-import { Bell, CheckCheck, ChevronDown, Command, Moon, Search, Settings, Sun, Trash2, UserRound, X, Zap } from "lucide-react";
+import { Bell, CheckCheck, ChevronDown, ChevronRight, Command, Moon, Search, Settings, Sun, Trash2, UserRound, X, Zap } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -23,6 +23,17 @@ const mobileNav = [
   { label: "Portfolio", href: "/portfolio", icon: "◒" },
   { label: "Investments", href: "/investments", icon: "◈" },
   { label: "Calendar", href: "/calendar", icon: "◫" },
+];
+
+export const moreMenuItems = [
+  { label: "Watchlists", href: "/watchlist" },
+  { label: "Portfolio", href: "/portfolio" },
+  { label: "Investments", href: "/investments" },
+  { label: "My investments", href: "/investments/my-investments" },
+  { label: "Withdraw", href: "/withdraw" },
+  { label: "Calendar", href: "/calendar" },
+  { label: "Deposit ETH", href: "/deposit/eth" },
+  { label: "Deposit history", href: "/deposits" },
 ];
 
 type NotificationItem = {
@@ -103,7 +114,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
           <nav className="desktop-nav" aria-label="Primary navigation">
             {primaryNav.map((item) => <Link key={item.href} href={item.href} className={cn("nav-link", location === item.href && "active")}>{item.label}</Link>)}
-            <div className="more-nav-wrap"><button type="button" className="nav-link more-link" onClick={() => setMoreOpen(open => !open)} aria-expanded={moreOpen}><span>More</span><ChevronDown size={13} /></button>{moreOpen && <div className="more-menu"><Link href="/watchlist" onClick={() => setMoreOpen(false)}>Watchlists</Link><Link href="/portfolio" onClick={() => setMoreOpen(false)}>Portfolio</Link><Link href="/investments" onClick={() => setMoreOpen(false)}>Investments</Link><Link href="/investments/my-investments" onClick={() => setMoreOpen(false)}>My investments</Link><Link href="/withdraw" onClick={() => setMoreOpen(false)}>Withdraw</Link><Link href="/calendar" onClick={() => setMoreOpen(false)}>Calendar</Link><Link href="/deposit/eth" onClick={() => setMoreOpen(false)}>Deposit ETH</Link><Link href="/deposits" onClick={() => setMoreOpen(false)}>Deposit history</Link>{user && <Link href="/settings" onClick={() => setMoreOpen(false)}><Settings size={13} /> Settings</Link>}</div>}</div>
+            <div className="more-nav-wrap">
+              <button type="button" className="nav-link more-link" onClick={() => setMoreOpen(open => !open)} aria-expanded={moreOpen}><span>More</span><ChevronDown size={13} /></button>
+              {moreOpen && (
+                <div className="more-menu">
+                  {moreMenuItems.map((item) => (
+                    <Link key={item.href} href={item.href} onClick={() => setMoreOpen(false)}>{item.label}</Link>
+                  ))}
+                  {user && <Link href="/settings" onClick={() => setMoreOpen(false)}><Settings size={13} /> Settings</Link>}
+                </div>
+              )}
+            </div>
           </nav>
           <div className="topbar-actions">
             <div className={cn("global-search", searchOpen && "expanded")}>
@@ -127,6 +148,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main>{children}</main>
       <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
         {mobileNav.map((item) => <Link key={item.href} href={item.href} className={cn("mobile-nav-item", location === item.href && "active")} onClick={() => setMoreOpen(false)}><span>{item.icon}</span>{item.label}</Link>)}
+        <button type="button" className={cn("mobile-nav-item mobile-more-trigger", moreOpen && "active")} aria-expanded={moreOpen} onClick={() => setMoreOpen((open) => !open)}><span>⋯</span>More</button>
+        {moreOpen && (
+          <div className="mobile-more-menu" role="menu" aria-label="More navigation">
+            {moreMenuItems.map((item) => (
+              <Link key={item.href} href={item.href} className="mobile-more-item" onClick={() => setMoreOpen(false)}>
+                <span>{item.label}</span>
+                <ChevronRight size={14} />
+              </Link>
+            ))}
+            {user && <Link href="/settings" className="mobile-more-item" onClick={() => setMoreOpen(false)}><span>Settings</span><ChevronRight size={14} /></Link>}
+          </div>
+        )}
       </nav>
       <footer className="legal-footer">
         <Link href="/privacy-policy">Privacy Policy</Link>
