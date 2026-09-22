@@ -4,6 +4,7 @@ import { Link } from "wouter";
 import { AppShell } from "@/components/AppShell";
 import { SupabaseAuthDialog } from "@/components/SupabaseAuthDialog";
 import { Button } from "@/components/ui/button";
+import { calculateInvestmentProjection } from "@/lib/investmentProjection";
 import { notify } from "@/lib/notify";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -36,11 +37,25 @@ export default function InvestmentsPage() {
   }, [filteredPlans, plans, selectedPlanId]);
 
   const principal = Number(amount || 0);
-  const dailyReturn = selectedPlan ? principal * Number(selectedPlan.dailyRate) : 0;
+  const availableBalance = Number(summaryQuery.data?.availableBalance ?? 0);
+  const safeDailyRate = selectedPlan ? Number(selectedPlan.dailyRate) : 0;
+  const [projectionPeriod, setProjectionPeriod] = useState<"weeks" | "months" | "years">("months");
+  const [projectionAmount, setProjectionAmount] = useState<number>(1);
+  const projectionDays = projectionPeriod === "weeks" ? projectionAmount * 7 : projectionPeriod === "months" ? projectionAmount * 30 : projectionAmount * 365;
+  const projection = calculateInvestmentProjection({ principal, dailyRate: safeDailyRate, durationDays: projectionDays });
+  const dailyReturn = projection.dailyReturn;
   const durationReturn = selectedPlan ? dailyReturn * Number(selectedPlan.durationDays) : 0;
   const estimatedEndValue = selectedPlan ? principal + durationReturn : 0;
-  const availableBalance = Number(summaryQuery.data?.availableBalance ?? 0);
   const annualizedYield = selectedPlan ? ((Math.pow(1 + Number(selectedPlan.dailyRate), 365) - 1) * 100) : 0;
+  const hasBalance = Number.isFinite(availableBalance) && availableBalance > 0;
+  const canInvest = Boolean(user) && Boolean(selectedPlan) && principal > 0 && principal <= availableBalance && hasBalance;
+  const investmentState = !user
+    ? "Sign in required"
+    : !hasBalance
+      ? "No funds available"
+      : principal > availableBalance
+        ? "Insufficient balance"
+        : "Ready to invest";
 
   const handleCreateInvestment = async () => {
     if (!user) {
@@ -201,6 +216,16 @@ export default function InvestmentsPage() {
                 <h2>Move funds into the plan</h2>
               </div>
             </div>
+            <div className="section-card" style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+              <div>
+                <div style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Account status</div>
+                <strong style={{ fontSize: "16px" }}>{investmentState}</strong>
+              </div>
+              <span className={investmentState === "Ready to invest" ? "network-chip" : "wallet-meta-pill"} style={{ borderColor: investmentState === "Ready to invest" ? "rgba(94,234,212,.4)" : "rgba(148,163,184,.2)", background: investmentState === "Ready to invest" ? "rgba(94,234,212,.08)" : "rgba(15,23,42,.5)" }}>
+                {investmentState === "Ready to invest" ? "Live" : "Hold"}
+              </span>
+            </div>
+
             <div style={{ display: "grid", gap: "14px" }}>
               <label style={{ display: "grid", gap: "8px" }}>
                 <span style={{ color: "var(--muted)", fontSize: "12px" }}>Investment amount</span>
@@ -225,14 +250,73 @@ export default function InvestmentsPage() {
                 <div style={{ display: "flex", justifyContent: "space-between", color: "var(--muted)" }}><span>Annualized yield</span><strong style={{ color: "var(--foreground)" }}>{annualizedYield.toFixed(2)}%</strong></div>
               </div>
 
-              <Button type="button" onClick={() => {
-                if (!user) {
-                  setAuthOpen(true);
-                  return;
-                }
-                setConfirmOpen(true);
-              }} className="full-button">
-                Invest now <ArrowRight size={15} />
+              <div className="section-card" style={{ padding: "16px", display: "grid", gap: "10px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <span style={{ color: "var(--muted)", fontSize: "12px" }}>Projected value</span>
+                  <div className="wallet-meta-row">
+                    {(["weeks", "months", "years"] as const).map((period) => (
+                      <button
+                        key={period}
+                        type="button"
+                        className="wallet-meta-pill"
+                        style={{ border: projectionPeriod === period ? "1px solid rgba(94,234,212,.5)" : "1px solid rgba(148,163,184,.2)", background: projectionPeriod === period ? "rgba(94,234,212,.08)" : "rgba(15,23,42,.5)" }}
+                        onClick={() => setProjectionPeriod(period)}
+                      >
+                        {period}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={projectionAmount}
+                    onChange={(event) => setProjectionAmount(Math.max(1, Number(event.target.value || 1)))}
+                    style={{ width: "88px", background: "rgba(15,23,42,.8)", border: "1px solid rgba(148,163,184,.2)", borderRadius: 12, color: "var(--foreground)", padding: "10px 12px" }}
+                  />
+                  <span style={{ color: "var(--muted)", fontSize: "12px" }}>{projectionPeriod === "weeks" ? "weeks" : projectionPeriod === "months" ? "months" : "years"}</span>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, color: "var(--muted)", fontSize: "12px" }}>
+                  <span>{projectionAmount} {projectionPeriod === "weeks" ? "weeks" : projectionPeriod === "months" ? "months" : "years"}</span>
+                  <strong style={{ color: "var(--foreground)" }}>${projection.endValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                </div>
+
+                {projection.periods.map((period) => (
+                  <div key={period.label} style={{ display: "flex", justifyContent: "space-between", gap: 12, color: "var(--muted)", fontSize: "12px" }}>
+                    <span>{period.label}</span>
+                    <strong style={{ color: "var(--foreground)" }}>${period.endValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                  </div>
+                ))}
+              </div>
+
+              {!hasBalance ? (
+                <div className="btc-provider-error">You need funds in your account before you can invest. Add balance to continue.</div>
+              ) : principal > availableBalance ? (
+                <div className="btc-provider-error">Your requested investment exceeds your available account balance.</div>
+              ) : null}
+
+              <Button
+                type="button"
+                onClick={() => {
+                  if (!user) {
+                    setAuthOpen(true);
+                    return;
+                  }
+                  if (!canInvest) {
+                    notify("Add funds and enter a valid amount before creating an investment.", "error");
+                    return;
+                  }
+                  setConfirmOpen(true);
+                }}
+                className="full-button"
+                disabled={!canInvest || createMutation.isPending}
+                aria-disabled={!canInvest || createMutation.isPending}
+              >
+                {canInvest ? "Invest now" : "Add funds to invest"} <ArrowRight size={15} />
               </Button>
             </div>
           </section>
