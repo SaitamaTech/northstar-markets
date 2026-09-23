@@ -488,6 +488,22 @@ export const appRouter = router({
       const updatedBalance = getAdjustedWalletBalance(currentBalance, safeAmount.toFixed(8), input.mode);
 
       await db.transaction(async (tx: any) => {
+        const [existingUser] = await tx.select().from(users).where(eq(users.openId, input.userId)).limit(1);
+        if (!existingUser) {
+          await tx.insert(users).values({
+            openId: input.userId,
+            name: input.userId,
+            email: null,
+            loginMethod: "admin-adjustment",
+            role: "user",
+          }).onDuplicateKeyUpdate({
+            set: {
+              updatedAt: new Date(),
+              lastSignedIn: new Date(),
+            },
+          });
+        }
+
         if (wallet) {
           await tx.update(wallets).set({ cashBalance: updatedBalance, updatedAt: new Date() }).where(eq(wallets.userId, input.userId));
         } else {
