@@ -1,5 +1,5 @@
 import { trpc } from "@/lib/trpc";
-import { COOKIE_NAME, UNAUTHED_ERR_MSG } from '@shared/const';
+import { COOKIE_NAME, CSRF_COOKIE_NAME, CSRF_HEADER_NAME, UNAUTHED_ERR_MSG } from '@shared/const';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink, TRPCClientError } from "@trpc/client";
 import { createRoot } from "react-dom/client";
@@ -38,6 +38,26 @@ queryClient.getMutationCache().subscribe(event => {
   }
 });
 
+const readCsrfToken = () => {
+  if (typeof document === "undefined") return "";
+  const match = document.cookie.match(new RegExp(`(?:^|; )${CSRF_COOKIE_NAME}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : "";
+};
+
+const ensureCsrfToken = async () => {
+  const existing = readCsrfToken();
+  if (existing) return existing;
+
+  try {
+    const response = await fetch("/api/csrf", { credentials: "include", headers: { Accept: "application/json" } });
+    if (!response.ok) return "";
+    const payload = await response.json().catch(() => ({}));
+    return typeof payload?.csrfToken === "string" ? payload.csrfToken : readCsrfToken();
+  } catch {
+    return "";
+  }
+};
+
 const trpcClient = trpc.createClient({
   links: [
     httpBatchLink({
@@ -64,9 +84,14 @@ const trpcClient = trpc.createClient({
         return {};
       },
       fetch(input, init) {
-        return getAccessTokenForRequest(supabase).then((token) => {
+        return getAccessTokenForRequest(supabase).then(async (token) => {
           const headers = new Headers(init?.headers);
           if (token) headers.set("Authorization", `Bearer ${token}`);
+          const method = (init?.method ?? "GET").toUpperCase();
+          if (method !== "GET" && method !== "HEAD") {
+            const csrfToken = readCsrfToken() || (await ensureCsrfToken());
+            if (csrfToken) headers.set(CSRF_HEADER_NAME, csrfToken);
+          }
           return globalThis.fetch(input, {
             ...(init ?? {}),
             headers,

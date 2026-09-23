@@ -6,6 +6,8 @@ import ArticlePage from "@/pages/ArticlePage";
 import BtcDepositPage from "@/pages/BtcDepositPage";
 import BtcDepositsPage from "@/pages/BtcDepositsPage";
 import AssetPage from "@/pages/AssetPage";
+import AdminPage from "@/pages/AdminPage";
+import AdminLoginPage from "@/pages/AdminLoginPage";
 import CalendarPage from "@/pages/CalendarPage";
 import ChartsPage from "@/pages/ChartsPage";
 import CookiesPage from "@/pages/CookiesPage";
@@ -45,6 +47,8 @@ function Router() {
     <Route path="/investments/:id" component={InvestmentDetailPage} />
     <Route path="/calendar" component={CalendarPage} />
     <Route path="/settings" component={SettingsPage} />
+    <Route path="/admin/login" component={AdminLoginPage} />
+    <Route path="/admin" component={AdminPage} />
     <Route path="/privacy-policy" component={PrivacyPolicyPage} />
     <Route path="/cookies" component={CookiesPage} />
     <Route path="/deposit/eth" component={BtcDepositPage} />

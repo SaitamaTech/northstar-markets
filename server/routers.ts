@@ -17,7 +17,7 @@ import { fetchLiveNews } from "./liveNews";
 import { getDb } from "./db";
 import { getMarketPrice, getPortfolio } from "./portfolio";
 import { getLiveInstrument, getLiveInstruments } from "./market-provider";
-import { btcDeposits, investmentAccruals, investmentPlans, investments, walletBalances, wallets } from "../drizzle/schema";
+import { btcDeposits, investmentAccruals, investmentPlans, investments, transactions, users, walletBalances, wallets } from "../drizzle/schema";
 import { getBitcoinNetwork, getRequiredConfirmations, bitcoinWalletProvider, syncBtcDeposits } from "./btc-provider";
 import { and, desc, eq } from "drizzle-orm";
 import { supabaseAdmin } from "./_core/supabase";
@@ -26,9 +26,11 @@ import {
   addDecimal,
   decimalNumber,
   ensureInvestmentPlans,
+  getAdjustedWalletBalance,
   getInvestmentSummaryForUser,
   getPlanDailyInterest,
   getWalletStateForUser,
+  normalizeUserRole,
   processDailyAccruals,
   subtractDecimal,
   validateInvestmentPlan,
@@ -315,6 +317,24 @@ export const appRouter = router({
     }),
   }),
   admin: router({
+    users: adminProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+
+      const rows = await db.select().from(users).orderBy(desc(users.createdAt));
+      const walletRows = await db.select().from(wallets);
+      const walletMap = new Map(walletRows.map((wallet: any) => [wallet.userId, wallet.cashBalance ?? "0"]));
+
+      return rows.map((userRow: any) => ({
+        id: userRow.id,
+        openId: userRow.openId,
+        name: userRow.name,
+        email: userRow.email,
+        role: userRow.role,
+        createdAt: userRow.createdAt,
+        cashBalance: walletMap.get(userRow.openId) ?? "0",
+      }));
+    }),
     plans: adminProcedure.query(async () => {
       const db = await getDb();
       if (!db) return [];
@@ -370,6 +390,72 @@ export const appRouter = router({
       await db.update(investmentPlans).set(updates).where(eq(investmentPlans.id, input.id));
       const [updated] = await db.select().from(investmentPlans).where(eq(investmentPlans.id, input.id)).limit(1);
       return updated;
+    }),
+    adjustUserBalance: adminProcedure.input(z.object({
+      userId: z.string().min(1),
+      amount: z.union([z.string(), z.number()]),
+      mode: z.enum(["credit", "debit", "set"]).default("credit"),
+      reason: z.string().min(1).max(200).optional(),
+    })).mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: "Database is not configured" });
+
+      const safeAmount = Number(input.amount);
+      if (!Number.isFinite(safeAmount) || safeAmount <= 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Adjustment amount must be greater than zero." });
+      }
+
+      const wallet = (await db.select().from(wallets).where(eq(wallets.userId, input.userId)).limit(1))[0];
+      const currentBalance = wallet?.cashBalance ?? "0";
+      const updatedBalance = getAdjustedWalletBalance(currentBalance, safeAmount.toFixed(8), input.mode);
+
+      await db.transaction(async (tx: any) => {
+        if (wallet) {
+          await tx.update(wallets).set({ cashBalance: updatedBalance, updatedAt: new Date() }).where(eq(wallets.userId, input.userId));
+        } else {
+          await tx.insert(wallets).values({ userId: input.userId, cashBalance: input.mode === "set" ? safeAmount.toFixed(8) : safeAmount.toFixed(8) });
+        }
+
+        await tx.insert(transactions).values({
+          userId: input.userId,
+          type: input.mode === "debit" ? "withdrawal" : "deposit",
+          assetId: null,
+          amount: input.mode === "set" ? safeAmount.toFixed(8) : safeAmount.toFixed(8),
+          currency: "USD",
+          status: "completed",
+          transactionId: `admin-adjustment-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        });
+      });
+
+      return {
+        success: true,
+        userId: input.userId,
+        mode: input.mode,
+        amount: safeAmount.toFixed(8),
+        balance: updatedBalance,
+        reason: input.reason ?? "Admin wallet adjustment",
+      };
+    }),
+    setUserRole: adminProcedure.input(z.object({
+      userId: z.string().min(1),
+      role: z.enum(["user", "admin"]).default("user"),
+    })).mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: "Database is not configured" });
+
+      const normalizedRole = normalizeUserRole(input.role);
+      const [existing] = await db.select().from(users).where(eq(users.openId, input.userId)).limit(1);
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "User not found." });
+      }
+
+      await db.update(users).set({ role: normalizedRole, updatedAt: new Date() }).where(eq(users.openId, input.userId));
+
+      return {
+        success: true,
+        userId: input.userId,
+        role: normalizedRole,
+      };
     }),
   }),
   wallet: router({

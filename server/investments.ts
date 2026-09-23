@@ -38,6 +38,26 @@ export function getPlanDailyInterest(principal: string | number, dailyRate: stri
   return multiplyDecimal(principal, dailyRate);
 }
 
+export function getAdjustedWalletBalance(currentBalance: string | number | null | undefined, amount: string | number, mode: "credit" | "debit" | "set") {
+  const current = decimalNumber(currentBalance, 0);
+  const delta = decimalNumber(amount, 0);
+
+  if (mode === "set") {
+    return decimalString(delta, "0");
+  }
+
+  if (mode === "credit") {
+    return decimalString(current + delta, "0");
+  }
+
+  return decimalString(current - delta, "0");
+}
+
+export function normalizeUserRole(value?: string | null): "user" | "admin" {
+  const normalized = (value ?? "user").toLowerCase();
+  return normalized === "admin" ? "admin" : "user";
+}
+
 export async function ensureInvestmentPlans(db: any) {
   const existing = await db.select().from(investmentPlans).limit(10);
   if (existing.length > 0) return existing;

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { notify } from "@/lib/notify";
 import { trpc } from "@/lib/trpc";
 import { resolveReceiveWalletAddress } from "@/lib/walletAddress";
-import { connectTrustWallet, restoreWalletConnection, type WalletConnection } from "@/lib/walletConnect";
+import { connectTrustWallet, type WalletConnection } from "@/lib/walletConnect";
 
 export default function BtcDepositPage() {
   const { user, loading: authLoading } = useAuth();
@@ -115,18 +115,7 @@ export default function BtcDepositPage() {
       return;
     }
 
-    let cancelled = false;
-
-    void (async () => {
-      const restored = await restoreWalletConnection();
-      if (!cancelled && restored) {
-        setConnectedWallet(restored);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    setConnectedWallet(null);
   }, [user, walletStatusQuery.data]);
 
   useEffect(() => {

@@ -16,6 +16,17 @@ const primaryNav = [
   { label: "Calendar", href: "/calendar" },
 ];
 
+const marketTickerItems = [
+  { label: "S&P 500", value: "+0.54%", tone: "positive" },
+  { label: "Nasdaq 100", value: "+0.73%", tone: "positive" },
+  { label: "Bitcoin", value: "+1.90%", tone: "positive" },
+  { label: "Gold", value: "+0.45%", tone: "positive" },
+  { label: "EUR/USD", value: "+0.14%", tone: "positive" },
+  { label: "US 10Y", value: "-3.2 bps", tone: "negative" },
+] as const;
+
+const tickerContent = [...marketTickerItems, ...marketTickerItems];
+
 const mobileNav = [
   { label: "Overview", href: "/", icon: "⌂" },
   { label: "Markets", href: "/markets", icon: "◌" },
@@ -141,7 +152,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <div className="market-ticker" aria-label="Market ticker">
-        <div className="ticker-track"><span className="ticker-live"><Zap size={12} fill="currentColor" /> Live tape</span><span> S&amp;P 500 <b className="positive">+0.54%</b></span><span> Nasdaq 100 <b className="positive">+0.73%</b></span><span> Bitcoin <b className="positive">+1.90%</b></span><span> Gold <b className="positive">+0.45%</b></span><span> EUR/USD <b className="positive">+0.14%</b></span><span> US 10Y <b className="negative">-3.2 bps</b></span></div>
+        <div className="ticker-track" aria-live="polite">
+          <span className="ticker-live"><Zap size={12} fill="currentColor" /> Live tape</span>
+          {tickerContent.map((item, index) => (
+            <span key={`${item.label}-${index}`} className="ticker-item">
+              <span className="ticker-label">{item.label}</span>
+              <b className={item.tone === "positive" ? "positive" : "negative"}>{item.value}</b>
+            </span>
+          ))}
+        </div>
       </div>
       <main>{children}</main>
       <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
