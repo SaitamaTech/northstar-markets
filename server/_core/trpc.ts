@@ -28,13 +28,19 @@ const requireUser = t.middleware(async opts => {
 
 export const protectedProcedure = t.procedure.use(requireUser);
 
-export function isAdminUserForAccess(user: { role?: string | null; email?: string | null } | null): boolean {
+export function isAdminUserForAccess(user: { role?: string | null; email?: string | null; openId?: string | null; user_metadata?: { email?: string | null } | null } | null): boolean {
   if (!user) return false;
 
   if (user.role === "admin") return true;
+  if (user.openId && ENV.ownerOpenId && user.openId === ENV.ownerOpenId) return true;
 
-  const normalizedEmail = (user.email ?? "").trim().toLowerCase();
-  return ENV.adminEmails.includes(normalizedEmail);
+  const candidateEmails = [
+    user.email,
+    (user as { user_metadata?: { email?: string | null } } | null)?.user_metadata?.email,
+  ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+
+  const normalizedEmails = candidateEmails.map((value) => value.trim().toLowerCase());
+  return normalizedEmails.some((email) => ENV.adminEmails.includes(email));
 }
 
 export const adminProcedure = t.procedure.use(
