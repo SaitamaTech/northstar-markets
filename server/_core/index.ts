@@ -34,7 +34,7 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
-  const rateLimiter = createRateLimiter({ windowMs: 60_000, maxRequests: 180, message: "Too many requests. Please wait a moment and try again." });
+  const rateLimiter = createRateLimiter({ windowMs: 60_000, maxRequests: 600, message: "Too many requests. Please wait a moment and try again." });
   const csrfProtection = createCsrfProtection({});
 
   app.disable("x-powered-by");

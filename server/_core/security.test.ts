@@ -10,6 +10,7 @@ describe("security headers", () => {
     expect(headers["X-Content-Type-Options"]).toBe("nosniff");
     expect(headers["Referrer-Policy"]).toBe("no-referrer");
     expect(headers["Content-Security-Policy"]).toContain("frame-ancestors 'none'");
+    expect(headers["Content-Security-Policy"]).toContain("fonts.gstatic.com");
   });
 
   it("applies headers with middleware semantics", () => {

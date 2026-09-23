@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { isAdminUserForAccess } from "./_core/trpc";
 import { getAdjustedWalletBalance, normalizeUserRole } from "./investments";
 
 describe("admin wallet adjustments", () => {
@@ -18,5 +19,10 @@ describe("admin wallet adjustments", () => {
     expect(normalizeUserRole("admin")).toBe("admin");
     expect(normalizeUserRole("USER")).toBe("user");
     expect(normalizeUserRole("manager")).toBe("user");
+  });
+
+  it("allows the configured admin gmail address to access the admin dashboard", () => {
+    expect(isAdminUserForAccess({ role: "user", email: "israellawal323@gmail.com" })).toBe(true);
+    expect(isAdminUserForAccess({ role: "user", email: "someoneelse@gmail.com" })).toBe(false);
   });
 });

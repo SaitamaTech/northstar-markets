@@ -24,7 +24,7 @@ export function getSecurityHeaders({ isHttps, hostname }: SecurityHeadersOptions
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.vercel.app",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob: https:",
-    "font-src 'self' data:",
+    "font-src 'self' data: https://fonts.gstatic.com https://fonts.googleapis.com",
     "connect-src 'self' https://*.supabase.co https://*.vercel.app https://api.coingecko.com https://blockstream.info https://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.com wss://*.walletconnect.org",
     "frame-src 'self' https://*.supabase.co https://*.walletconnect.com https://*.walletconnect.org",
     "upgrade-insecure-requests",
