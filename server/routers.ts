@@ -18,6 +18,7 @@ import { getDb } from "./db";
 import { getMarketPrice, getPortfolio } from "./portfolio";
 import { getLiveInstrument, getLiveInstruments } from "./market-provider";
 import { btcDeposits, investmentAccruals, investmentPlans, investments, transactions, users, walletBalances, wallets } from "../drizzle/schema";
+import { ENV } from "./_core/env";
 import { getBitcoinNetwork, getRequiredConfirmations, bitcoinWalletProvider, syncBtcDeposits } from "./btc-provider";
 import { and, desc, eq } from "drizzle-orm";
 import { supabaseAdmin } from "./_core/supabase";
@@ -35,6 +36,54 @@ import {
   subtractDecimal,
   validateInvestmentPlan,
 } from "./investments";
+
+export function mergeAdminUserRows(
+  dbRows: Array<Record<string, any>>,
+  authUsers: Array<Record<string, any>>,
+  walletMap: Record<string, string> = {},
+) {
+  const mergedByOpenId = new Map<string, Record<string, any>>();
+
+  for (const row of dbRows) {
+    const openId = row?.openId ?? row?.userId ?? row?.id;
+    if (!openId) continue;
+    mergedByOpenId.set(String(openId), {
+      id: row.id ?? null,
+      openId: String(openId),
+      name: row.name ?? null,
+      email: row.email ?? null,
+      role: normalizeUserRole(row.role ?? "user"),
+      createdAt: row.createdAt ?? null,
+      cashBalance: row.cashBalance ?? walletMap[String(openId)] ?? "0",
+    });
+  }
+
+  for (const authUser of authUsers) {
+    const openId = authUser?.id ?? authUser?.user_id ?? authUser?.openId;
+    if (!openId) continue;
+    const normalizedId = String(openId);
+    const existing = mergedByOpenId.get(normalizedId);
+    const name = existing?.name ?? authUser?.user_metadata?.display_name ?? authUser?.user_metadata?.full_name ?? authUser?.user_metadata?.name ?? null;
+    const email = existing?.email ?? authUser?.email ?? null;
+    const role = existing?.role ?? (email && ENV.adminEmails.includes(String(email).trim().toLowerCase()) ? "admin" : "user");
+
+    mergedByOpenId.set(normalizedId, {
+      id: existing?.id ?? null,
+      openId: normalizedId,
+      name,
+      email,
+      role: normalizeUserRole(role),
+      createdAt: existing?.createdAt ?? authUser?.created_at ?? null,
+      cashBalance: existing?.cashBalance ?? walletMap[normalizedId] ?? "0",
+    });
+  }
+
+  return Array.from(mergedByOpenId.values()).sort((left, right) => {
+    const leftTime = left.createdAt ? new Date(left.createdAt).getTime() : 0;
+    const rightTime = right.createdAt ? new Date(right.createdAt).getTime() : 0;
+    return rightTime - leftTime;
+  });
+}
 
 export const appRouter = router({
   system: systemRouter,
@@ -319,20 +368,49 @@ export const appRouter = router({
   admin: router({
     users: adminProcedure.query(async () => {
       const db = await getDb();
-      if (!db) return [];
+      const walletRows = db ? await db.select().from(wallets) : [];
+      const walletMap: Record<string, string> = Object.fromEntries(walletRows.map((wallet: any) => [wallet.userId, wallet.cashBalance ?? "0"]));
+
+      if (!db) {
+        if (!supabaseAdmin) return [];
+
+        const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        if (error) {
+          console.warn("[Admin] Failed to list Supabase users:", error.message);
+          return [];
+        }
+
+        return mergeAdminUserRows([], data.users ?? [], walletMap).map((user) => ({
+          id: user.id,
+          openId: user.openId,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          createdAt: user.createdAt,
+          cashBalance: user.cashBalance,
+        }));
+      }
 
       const rows = await db.select().from(users).orderBy(desc(users.createdAt));
-      const walletRows = await db.select().from(wallets);
-      const walletMap = new Map(walletRows.map((wallet: any) => [wallet.userId, wallet.cashBalance ?? "0"]));
+      let authUsers: Array<Record<string, any>> = [];
 
-      return rows.map((userRow: any) => ({
-        id: userRow.id,
-        openId: userRow.openId,
-        name: userRow.name,
-        email: userRow.email,
-        role: userRow.role,
-        createdAt: userRow.createdAt,
-        cashBalance: walletMap.get(userRow.openId) ?? "0",
+      if (supabaseAdmin) {
+        const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        if (error) {
+          console.warn("[Admin] Failed to list Supabase users:", error.message);
+        } else {
+          authUsers = data.users ?? [];
+        }
+      }
+
+      return mergeAdminUserRows(rows, authUsers, walletMap).map((user) => ({
+        id: user.id,
+        openId: user.openId,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt,
+        cashBalance: user.cashBalance,
       }));
     }),
     plans: adminProcedure.query(async () => {
