@@ -56,7 +56,10 @@ export default function AdminPage() {
       setAmount("100");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to adjust balance.";
-      notify(message, "error");
+      const friendlyMessage = message.includes("FORBIDDEN") || message.includes("Forbidden")
+        ? "Admin access denied. Sign in with an approved administrator account to continue."
+        : message;
+      notify(friendlyMessage, "error");
     }
   };
 
@@ -69,7 +72,10 @@ export default function AdminPage() {
       await adminUsersQuery.refetch();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to update user role.";
-      notify(message, "error");
+      const friendlyMessage = message.includes("FORBIDDEN") || message.includes("Forbidden")
+        ? "Admin access denied. Sign in with an approved administrator account to continue."
+        : message;
+      notify(friendlyMessage, "error");
     }
   };
 
@@ -99,8 +105,8 @@ export default function AdminPage() {
       ) : adminUsersQuery.isLoading || authLoading ? (
         <section className="section-card settings-auth-card"><h2>Loading admin data</h2><p>Checking the wallet records and user list.</p></section>
       ) : (
-        <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1.2fr 0.8fr" }}>
-          <section className="section-card">
+        <div className="admin-layout">
+          <section className="section-card admin-panel-card">
             <div className="section-header">
               <div>
                 <span className="section-eyebrow">Accounts</span>
@@ -135,7 +141,7 @@ export default function AdminPage() {
             </div>
           </section>
 
-          <section className="section-card">
+          <section className="section-card admin-panel-card">
             <div className="section-header">
               <div>
                 <span className="section-eyebrow">Wallet action</span>
